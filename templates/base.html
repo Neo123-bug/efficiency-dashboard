@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}成都辅助运营数据看板{% endblock %}</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #f5f6fa;
+  --card: #fff;
+  --text: #1a1a2e;
+  --text2: #636e72;
+  --border: #e8eaed;
+  --accent: #5b6af0;
+  --accent2: #764ba2;
+  --green: #00b894;
+  --orange: #e17055;
+  --cyan: #00cec9;
+  --red: #d63031;
+  --purple: #a29bfe;
+  --gold: #fdcb6e;
+  --sidebar-bg: #1a1a24;
+  --sidebar-text: #a5a6b5;
+  --sidebar-active: #ffba42;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,.08);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+a { text-decoration: none; color: inherit; }
+
+/* Sidebar */
+.sidebar {
+  width: 280px; background: #1a1a24; color: #a5a6b5;
+  display: flex; flex-direction: column; flex-shrink: 0;
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+}
+.sidebar-logo {
+  padding: 20px; display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,.06); margin-bottom: 12px;
+}
+.sidebar-logo .logo-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: linear-gradient(135deg, #ffba42, #ff9a00);
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px;
+}
+.sidebar-logo h2 { font-size: 17px; font-weight: 700; color: #fff; letter-spacing: .3px; line-height: 1.2; white-space: nowrap; }
+.sidebar-nav { list-style: none; padding: 0 12px; }
+.sidebar-nav li { margin: 4px 0; }
+.sidebar-nav a {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border-radius: 8px; color: #a5a6b5; font-size: 14px;
+  transition: all .15s; font-weight: 500; position: relative;
+}
+.sidebar-nav a:hover { background: rgba(255,255,255,.05); color: #fff; }
+.sidebar-nav a.active {
+  background: linear-gradient(90deg, rgba(255,186,66,.18), transparent);
+  color: #ffba42; font-weight: 600;
+}
+.sidebar-nav a.active::before {
+  content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px; background: #ffba42; border-radius: 0 2px 2px 0;
+}
+.sidebar-nav .icon { width: 20px; text-align: center; font-size: 16px; flex-shrink: 0; }
+.sidebar-footer {
+  margin-top: auto; padding: 14px 20px; border-top: 1px solid rgba(255,255,255,.06);
+  display: flex; align-items: center; gap: 8px; font-size: 12px; color: #a5a6b5;
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+/* Main */
+.main { margin-left: 280px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.topbar {
+  background: var(--card); padding: 16px 28px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50;
+}
+.topbar h1 { font-size: 20px; font-weight: 700; }
+.topbar-right { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--text2); }
+.badge-updated {
+  background: #e8f5e9; color: #2e7d32; padding: 4px 10px; border-radius: 20px; font-size: 12px;
+  display: flex; align-items: center; gap: 4px; font-weight: 500;
+}
+.badge-updated .dot { width: 6px; height: 6px; border-radius: 50%; background: #2e7d32; }
+.content { padding: 24px 28px; flex: 1; }
+
+/* Cards */
+.card { background: var(--card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.card-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card-title .icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.icon-indigo { background: linear-gradient(135deg, #5b6af0, #8b5cf6); color: #fff; }
+.icon-green { background: linear-gradient(135deg, #00b894, #00cec9); color: #fff; }
+.icon-orange { background: linear-gradient(135deg, #e17055, #fdcb6e); color: #fff; }
+.icon-purple { background: linear-gradient(135deg, #764ba2, #a29bfe); color: #fff; }
+.icon-cyan { background: linear-gradient(135deg, #00cec9, #0984e3); color: #fff; }
+.icon-pink { background: linear-gradient(135deg, #e84393, #fd79a8); color: #fff; }
+
+/* KPI grid */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi-card { background: var(--card); border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow); border: 1px solid var(--border); position: relative; overflow: hidden; transition: transform .15s, box-shadow .15s; }
+.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.kpi-card .kpi-icon {
+  position: absolute; right: 16px; top: 16px;
+  width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; opacity: .15;
+}
+.kpi-card .kpi-label { font-size: 13px; color: var(--text2); margin-bottom: 8px; font-weight: 500; }
+.kpi-card .kpi-value { font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+.kpi-card .kpi-sub { font-size: 12px; color: var(--text2); }
+.kpi-blue { border-left: 4px solid var(--accent); }
+.kpi-blue .kpi-icon { background: var(--accent); }
+.kpi-green { border-left: 4px solid var(--green); }
+.kpi-green .kpi-icon { background: var(--green); }
+.kpi-orange { border-left: 4px solid var(--orange); }
+.kpi-orange .kpi-icon { background: var(--orange); }
+.kpi-purple { border-left: 4px solid var(--purple); }
+.kpi-purple .kpi-icon { background: var(--purple); }
+
+/* Table */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th { text-align: left; padding: 12px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--text2); border-bottom: 2px solid var(--border); font-weight: 600; background: #fafbfc; }
+.data-table td { padding: 11px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.data-table tr:hover td { background: #f8f9ff; }
+.data-table .rank { width: 40px; text-align: center; font-weight: 700; }
+.rank-1 { color: #f39c12; font-size: 18px; }
+.rank-2 { color: #95a5a6; font-size: 18px; }
+.rank-3 { color: #cd6133; font-size: 18px; }
+
+/* Progress bar */
+.progress-wrap { width: 100px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden; }
+.progress-bar { height: 100%; border-radius: 3px; transition: width .3s; }
+.progress-high { background: var(--green); }
+.progress-mid { background: var(--accent); }
+.progress-low { background: var(--orange); }
+.progress-crit { background: var(--red); }
+
+/* Tags */
+.tag { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.tag-blue { background: #eef0ff; color: var(--accent); }
+.tag-green { background: #e8f5e9; color: #2e7d32; }
+.tag-orange { background: #fff3e0; color: #e65100; }
+.tag-red { background: #ffebee; color: #c62828; }
+
+/* Grid */
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; margin-bottom: 20px; }
+
+/* Chart */
+.chart-wrap { position: relative; width: 100%; }
+.chart-wrap canvas { width: 100% !important; }
+
+/* Animations */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.anim { animation: fadeInUp .4s ease-out; }
+.delay-1 { animation-delay: .05s; }
+.delay-2 { animation-delay: .1s; }
+.delay-3 { animation-delay: .15s; }
+.delay-4 { animation-delay: .2s; }
+
+/* Empty state */
+.empty { text-align: center; padding: 60px 20px; color: var(--text2); }
+.empty .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: .3; }
+.empty h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+.empty p { font-size: 14px; }
+
+.section-card { margin-bottom: 24px; }
+.section-divider { font-size: 13px; color: var(--text2); margin: 8px 0 16px; font-weight: 500; }
+.flex-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.font-bold { font-weight: 700; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.mt-8 { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">▦</div>
+    <h2>成都辅助运营数据看板</h2>
+  </div>
+
+  <ul class="sidebar-nav">
+    <li><a href="/" class="{{ 'active' if active == 'home' }}"><span class="icon">▦</span>首页</a></li>
+    <li><a href="/app-efficiency" class="{{ 'active' if active == 'app' }}"><span class="icon">◫</span>APP效率监控</a></li>
+    <li><a href="/automation" class="{{ 'active' if active == 'automation' }}"><span class="icon">⚡</span>自动化效率监控</a></li>
+    <li><a href="/photo" class="{{ 'active' if active == 'photo' }}"><span class="icon">◎</span>拍照效率监控</a></li>
+    <li><a href="/groups" class="{{ 'active' if active == 'groups' }}"><span class="icon">⊞</span>各组人员效率</a></li>
+    <li><a href="/staff" class="{{ 'active' if active == 'staff' }}"><span class="icon">☷</span>人员管理</a></li>
+    <li><a href="/schedule" class="{{ 'active' if active == 'schedule' }}"><span class="icon">◴</span>排班管理</a></li>
+    <li><a href="/todo" class="{{ 'active' if active == 'todo' }}"><span class="icon">☐</span>待办事项</a></li>
+    <li><a href="/alert" class="{{ 'active' if active == 'alert' }}"><span class="icon">⚠</span>异常预警</a></li>
+  </ul>
+
+  <div class="sidebar-footer">
+    <span class="status-dot"></span> 系统运行中
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    {% set pt = self.page_title()|trim %}
+    {% if pt %}<h1>{{ pt }}</h1>{% endif %}
+    <div class="topbar-right">
+      <span class="badge-updated"><span class="dot"></span> 实时</span>
+    </div>
+  </div>
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

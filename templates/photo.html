@@ -1,0 +1,523 @@
+{% extends "base.html" %}
+{% block title %}拍照效率监控 - 效率看板{% endblock %}
+{% block page_title %}{% endblock %}
+{% block content %}
+{% set d = data or {} %}
+{% set sr = d.get('staff_ranking', []) or [] %}
+{% set mg = d.get('method_groups', []) or [] %}
+{% set sg = d.get('service_standard_groups', []) or [] %}
+{% set pd = pd or {} %}
+{% set ps_list = pd.get('staff_list', []) or [] %}
+{% set ph_rates = pd.get('hourly_rates', {}) or {} %}
+{% set ph_totals = pd.get('hourly_totals', {}) %}
+
+<style>
+/* ═══════════════ 拍照效率监控 — 与自动化页面统一风格 ═══════════════ */
+
+/* ── 工具栏 ── */
+.photo-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.photo-toolbar h2 { font-size: 22px; font-weight: 700; color: var(--text); }
+.btn-refresh {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--text); font-size: 13px;
+  cursor: pointer; transition: all .15s;
+}
+.btn-refresh:hover { background: #f5f6fa; border-color: var(--accent); color: var(--accent); }
+
+/* ── 6卡片网格（与automation一致） ── */
+.photo-kpi-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;
+  margin-bottom: 20px;
+}
+.photo-kpi-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  position: relative; overflow: hidden;
+  transition: transform .15s, box-shadow .15s;
+}
+.photo-kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.photo-kpi-label { font-size: 14px; color: var(--text); font-weight: 700; margin-bottom: 10px; }
+.photo-kpi-value { font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 4px; }
+.photo-kpi-sub { font-size: 11px; color: var(--text3); }
+.photo-kpi-icon {
+  position: absolute; right: 12px; top: 12px;
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; opacity: .85;
+}
+/* 6种渐变色（与automation一致） */
+.pkpi-blue   { background: linear-gradient(135deg, #e8f4fd, #f0f8ff); }
+.pkpi-blue .photo-kpi-icon { background: #dbeafe; color: #2563eb; }
+.pkpi-orange { background: linear-gradient(135deg, #fef6e8, #fffbeb); }
+.pkpi-orange .photo-kpi-icon { background: #fed7aa; color: #ea580c; }
+.pkpi-cyan   { background: linear-gradient(135deg, #e8fdf9, #f0fdfa); }
+.pkpi-cyan .photo-kpi-icon { background: #ccfbf1; color: #0d9488; }
+.pkpi-purple { background: linear-gradient(135deg, #f3e8fd, #faf5ff); }
+.pkpi-purple .photo-kpi-icon { background: #ede9fe; color: #9333ea; }
+.pkpi-green  { background: linear-gradient(135deg, #e8f8ee, #f0fff4); }
+.pkpi-green .photo-kpi-icon { background: #dcfce7; color: #16a34a; }
+.pkpi-red    { background: linear-gradient(135deg, #fee2e2, #fef2f2); }
+.pkpi-red .photo-kpi-icon { background: #fecaca; color: #dc2626; }
+
+.value-highlight-green { color: #16a34a; }
+.value-highlight-red { color: #dc2626; }
+
+/* ── 拍照方式 / 服务标准 卡片区（channel-tab 风格） ── */
+.channel-tabs {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+  margin-bottom: 24px;
+}
+.channel-tabs.cols4 { grid-template-columns: repeat(4, 1fr); }
+.channel-tab {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow);
+  border: 2px solid transparent;
+  cursor: default; transition: all .15s;
+}
+.channel-tab:hover { border-color: var(--accent); transform: translateY(-1px); }
+/* 各方式淡色区分 */
+.channel-tab.ct-godzilla { background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-left: 4px solid #22c55e; }
+.channel-tab.ct-cube     { background: linear-gradient(135deg, #fef6e8, #fffbeb); border-left: 4px solid #f59e0b; }
+.channel-tab.ct-guanghe  { background: linear-gradient(135deg, #ecfeff, #f0fdfa); border-left: 4px solid #06b6d4; }
+.channel-tab.ct-flaw     { background: linear-gradient(135deg, #fef2f2, #fff1f2); border-left: 4px solid #ef4444; }
+/* 服务标准区分 */
+.channel-tab.ct-pppz     { background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-left: 4px solid #22c55e; }
+.channel-tab.ct-ppmdpz   { background: linear-gradient(135deg, #eff6ff, #f0f9ff); border-left: 4px solid #3b82f6; }
+.channel-tab.ct-pjtpz    { background: linear-gradient(135deg, #fef6e8, #fffbeb); border-left: 4px solid #f59e0b; }
+.channel-tab.ct-zj0074   { background: linear-gradient(135deg, #faf5ff, #f5f3ff); border-left: 4px solid #a855f7; }
+
+.channel-tab-header {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 12px; font-size: 16px; font-weight: 700;
+  color: var(--text);
+}
+.channel-tab-stats { display: flex; gap: 0; }
+.channel-stat-item { flex: 1; text-align: center; }
+.channel-stat-label { color: var(--text2); font-size: 12px; margin-bottom: 3px; }
+.channel-stat-value { font-weight: 800; font-size: 23px; color: var(--text); }
+/* 方式卡片数值着色 */
+.ct-godzilla .channel-stat-value { color: #16a34a; }
+.ct-cube .channel-stat-value     { color: #ea580c; }
+.ct-guanghe .channel-stat-value  { color: #0891b2; }
+.ct-flaw .channel-stat-value     { color: #dc2626; }
+.ct-pppz .channel-stat-value     { color: #16a34a; }
+.ct-ppmdpz .channel-stat-value   { color: #2563eb; }
+.ct-pjtpz .channel-stat-value    { color: #d97706; }
+.ct-zj0074 .channel-stat-value   { color: #9333ea; }
+
+/* ── 区块标题 ── */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-title { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.section-count { font-size: 14px; color: var(--text2); }
+.section-note { font-size: 12px; color: var(--text2); }
+
+/* ── 人员表格（与automation完全一致） ── */
+.auto-table-wrap {
+  background: var(--card); border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: 20px; margin-bottom: 24px;
+}
+.auto-table {
+  width: 100%; table-layout: fixed;
+  border-collapse: collapse;
+}
+.auto-table th, .auto-table td {
+  padding: 10px 6px; font-size: 14px;
+  text-align: center; vertical-align: middle;
+  overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.auto-table th { font-weight: 700; background: #fafbfc; color: var(--text2); font-size: 14px; }
+.auto-table td { font-weight: 700; color: var(--text); font-size: 13px; }
+.auto-table tr:hover td { background: #f8f9ff; }
+
+/* 排名奖牌 */
+.rank-medal {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-size: 13px; font-weight: 700; color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
+}
+.rank-gold { background: linear-gradient(135deg, #fcd34d, #f59e0b); }
+.rank-silver { background: linear-gradient(135deg, #e2e8f0, #94a3b8); }
+.rank-bronze { background: linear-gradient(135deg, #f0b486, #cd7c32); }
+
+/* 胶囊标签 */
+.tag-fulltime { background: #dbeafe; color: #1d4ed8; padding: 3px 11px; border-radius: 10px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-parttime { background: #fef3c7; color: #b45309; padding: 3px 11px; border-radius: 10px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-godzilla { background: #dcfce7; color: #15803d; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-mirror   { background: #ede9fe; color: #7c3aed; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-guanghe  { background: #ccfbf1; color: #0d9488; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-cube     { background: #fef3c7; color: #b45309; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+
+/* 效率达成列 */
+.achieve-cell {
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; width: 100%; min-width: 0;
+}
+.progress-wrap { width: 48px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; flex: 0 0 auto; }
+.progress-bar { height: 100%; border-radius: 3px; }
+.progress-high { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.progress-mid { background: linear-gradient(90deg, #ea580c, #f97316); }
+.progress-low { background: linear-gradient(90deg, #eab308, #facc15); }
+.progress-crit { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.progress-pass { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.progress-fail { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.achieve-pct { font-size: 13px; font-weight: 700; white-space: nowrap; flex: 0 0 auto; }
+.txt-pass { color: #16a34a; } .txt-fail { color: #dc2626; }
+.badge-pass, .badge-fail {
+  padding: 2px 7px; border-radius: 8px;
+  font-size: 11px; font-weight: 600; white-space: nowrap; flex: 0 0 auto;
+}
+.badge-pass { background: #dcfce7; color: #16a34a; }
+.badge-fail { background: #fee2e2; color: #dc2626; }
+/* 超短工时标注：工时过短致达成率失真，仅提醒不剔除 */
+.badge-short { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+
+/* ── 时段表格 ── */
+.hourly-table th.bg-orange { background: #fff7ed; color: #c2410c; font-size: 13px; }
+.hourly-table th.bg-purple { background: #faf5ff; color: #7c3aed; font-size: 13px; }
+.hourly-table td.text-center { text-align: center; font-size: 13px; }
+.hourly-table td.hourly-num { text-align: center; font-weight: 600; font-size: 14px; }
+.hourly-table tfoot td {
+  background: #fefce8; border-top: 2px solid var(--border);
+  font-weight: 800; font-size: 14px; color: #854d0e;
+}
+.hourly-table tfoot .total-num { color: #b45309; font-weight: 900; font-size: 15px; }
+
+/* 空状态 */
+.empty-state { text-align: center; padding: 50px 20px; color: var(--text2); }
+.empty-state h3 { font-size: 16px; color: var(--text); margin-bottom: 4px; }
+.empty-state p { font-size: 13px; }
+
+/* 动画 */
+.anim { animation: fadeUp .45s ease both; }
+.delay-1 { animation-delay: .05s; }
+.delay-2 { animation-delay: .12s; }
+.delay-3 { animation-delay: .19s; }
+.delay-4 { animation-delay: .26s; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+/* 响应式 */
+@media (max-width: 1200px) { .photo-kpi-grid { grid-template-columns: repeat(2, 1fr); } .channel-tabs { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px)  { .channel-tabs.cols4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px)  { .photo-kpi-grid { grid-template-columns: 1fr; } .channel-tabs { grid-template-columns: 1fr; } }
+</style>
+
+<!-- 工具栏 -->
+<div class="photo-toolbar">
+  <div><h2>拍照效率监控</h2></div>
+  <button class="btn-refresh" onclick="refreshPhoto(this)">
+    <span>↻</span> 刷新数据
+  </button>
+</div>
+
+<!-- ═══ 6个KPI卡片（统一用 pd 口径，与人员明细表一致） ═══ -->
+<div class="photo-kpi-grid anim delay-1">
+  <div class="photo-kpi-card pkpi-blue">
+    <div class="photo-kpi-label">总人数</div>
+    <div class="photo-kpi-value">{{ pd.get('staff_count', 0) }}</div>
+    <div class="photo-kpi-sub">人</div>
+    <div class="photo-kpi-icon">👥</div>
+  </div>
+  <div class="photo-kpi-card pkpi-orange">
+    <div class="photo-kpi-label">总处理量</div>
+    <div class="photo-kpi-value">{{ fmt(pd.get('total_products', 0)) }}</div>
+    <div class="photo-kpi-sub">台</div>
+    <div class="photo-kpi-icon">📦</div>
+  </div>
+  <div class="photo-kpi-card pkpi-cyan">
+    <div class="photo-kpi-label">总工时</div>
+    <div class="photo-kpi-value">{{ pd.get('total_hours', 0) }}</div>
+    <div class="photo-kpi-sub">小时</div>
+    <div class="photo-kpi-icon">🕐</div>
+  </div>
+  <div class="photo-kpi-card pkpi-purple">
+    <div class="photo-kpi-label">平均UPPH</div>
+    <div class="photo-kpi-value">{{ pd.get('avg_upph', 0) }}</div>
+    <div class="photo-kpi-sub">台/小时</div>
+    <div class="photo-kpi-icon">📊</div>
+  </div>
+  <div class="photo-kpi-card pkpi-green">
+    <div class="photo-kpi-label">达标率</div>
+    <div class="photo-kpi-value value-highlight-green">{{ pct(pd.get('achievement_rate', 0)) }}<span style="font-size:18px;color:var(--text2)"></span></div>
+    <div class="photo-kpi-sub">达标 {{ pd.get('achieved_count',0) }} / 未达标 {{ pd.get('unqualified_count',0) }}</div>
+    <div class="photo-kpi-icon">✅</div>
+  </div>
+  <div class="photo-kpi-card pkpi-red">
+    <div class="photo-kpi-label">未达标人数</div>
+    <div class="photo-kpi-value value-highlight-red">{{ pd.get('unqualified_count', 0) }}</div>
+    <div class="photo-kpi-sub">人</div>
+    <div class="photo-kpi-icon">⚠️</div>
+  </div>
+</div>
+
+<!-- ═══ 拍照方式（3卡片，channel-tab风格） ═══ -->
+<div class="section-header anim delay-2">
+  <div class="section-title"><span style="margin-right:4px">📸</span>拍照方式</div>
+</div>
+<div class="channel-tabs cols4 anim delay-2" id="methodTabs">
+  {% set method_icons = {'哥斯拉拍照':'📷','拍照魔方':'✨','光合拍照':'🌿','瑕疵图拍照':'🔍'} %}
+  {% set method_ct = {'哥斯拉拍照':'ct-godzilla','拍照魔方':'ct-cube','光合拍照':'ct-guanghe','瑕疵图拍照':'ct-flaw'} %}
+  {% for m in mg %}
+  {% set mname = m.get('method','') %}
+  {% set ctcls = method_ct.get(mname, 'ct-godzilla') %}
+  <div class="channel-tab {{ ctcls }}">
+    <div class="channel-tab-header">
+      <span>{{ method_icons.get(mname, '📷') }}</span> {{ mname }}
+    </div>
+    <div class="channel-tab-stats">
+      <div class="channel-stat-item"><div class="channel-stat-label">处理量</div><div class="channel-stat-value">{{ fmt(m.get('total_count',0)) }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">人数</div><div class="channel-stat-value">{{ m.get('staff_count',0) }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">UPPH</div><div class="channel-stat-value">{{ m.get('upph',0) }}</div></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ═══ 服务标准分类（4卡片，channel-tab风格） ═══ -->
+<div class="section-header anim delay-2">
+  <div class="section-title"><span style="margin-right:4px">🏷️</span>服务标准分类</div>
+</div>
+<div class="channel-tabs cols4 anim delay-2" id="svcTabs">
+  {% set svc_map = {
+    'PPPZ':   {'label':'拍拍拍照',     'ct':'ct-pppz'},
+    'PPMDPZ': {'label':'拍拍门店拍照', 'ct':'ct-ppmdpz'},
+    'PJTPZ':  {'label':'拍机堂拍照',   'ct':'ct-pjtpz'},
+    'ZJ0074': {'label':'C2B入哥斯拉', 'ct':'ct-zj0074'}
+  } %}
+  {% for g in sg %}
+  {% set gk = g.get('group_name','') %}
+  {% set info = svc_map.get(gk, {}) or {'label':gk, 'ct':'ct-godzilla'} %}
+  {% set ctcls = info.get('ct','ct-godzilla') %}
+  <div class="channel-tab {{ ctcls }}">
+    <div class="channel-tab-header">{{ info.get('label',gk) }}</div>
+    <div class="channel-tab-stats">
+      <div class="channel-stat-item"><div class="channel-stat-label">处理量</div><div class="channel-stat-value">{{ fmt(g.get('total_count',0)) }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">UPPH</div><div class="channel-stat-value">{{ g.get('upph',0) }}</div></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ═══ 人员效率明细 ═══ #}
+<div class="auto-table-wrap anim delay-3" id="photoStaffWrap">
+  <div class="section-header">
+    <div class="section-title"><span style="margin-right:4px">📋</span>人员效率明细</div>
+    <div class="section-count">共 {{ ps_list|length }} 人</div>
+  </div>
+  {% if ps_list %}
+  <table class="auto-table" id="photoStaffTable">
+    <colgroup>
+      <col style="width:5%">   <!-- 排名 -->
+      <col style="width:8%">   <!-- 姓名 -->
+      <col style="width:8%">   <!-- 工号 -->
+      <col style="width:7%">   <!-- 类型 -->
+      <col style="width:8%">   <!-- 岗位 -->
+      <col style="width:8%">   <!-- 总处理量 -->
+      <col style="width:14%">  <!-- 设备编号（独立列） -->
+      <col style="width:10%">  <!-- 效率时长 -->
+      <col style="width:8%">   <!-- UPPH -->
+      <col style="width:24%">  <!-- 效率达成 -->
+    </colgroup>
+    <thead>
+      <tr>
+        <th>排名</th>
+        <th>姓名</th>
+        <th>工号</th>
+        <th>类型</th>
+        <th>岗位</th>
+        <th>总处理量</th>
+        <th>设备编号</th>
+        <th>效率时长(h)</th>
+        <th>UPPH</th>
+        <th>效率达成</th>
+      </tr>
+    </thead>
+    <tbody id="photoStaffBody">
+      {% for s in ps_list %}
+      {% set raw = s.get('raw', {}) or {} %}
+      {% set ach = s.get('hourly_comprehensive_rate', 0) %}
+      {% set etype = s.get('emp_type', '') %}
+      {% set is_full = etype == '全职' %}
+      {% set qualified = ach >= 100 %}
+      {% set sources = raw.get('data_sources',[]) or s.get('data_sources',[]) %}
+      {% set src_tag = 'guanghe' if ('lightcore' in (sources|join(',')) or ('光合' in (sources|join(',')))) else ('cube' if (s.get('photo_cube_count',0)|int > 0) else 'godzilla') %}
+      <tr data-name="{{ s.get('name','') }}">
+        <td>
+          {% if s.get('rank', 0) == 1 %}<span class="rank-medal rank-gold">1</span>
+          {% elif s.get('rank', 0) == 2 %}<span class="rank-medal rank-silver">2</span>
+          {% elif s.get('rank', 0) == 3 %}<span class="rank-medal rank-bronze">3</span>
+          {% else %}<span style="color:var(--text2);font-weight:600">{{ s.get('rank', loop.index) }}</span>{% endif %}
+        </td>
+        <td class="font-bold">{{ s.get('name','-') }}</td>
+        <td style="font-size:12px;color:var(--text2)">{{ s.get('employee_no','-') }}</td>
+        <td><span class="{% if is_full %}tag-fulltime{% else %}tag-parttime{% endif %}">{{ etype if etype else '-' }}</span></td>
+        <td>
+          {% if src_tag == 'guanghe' %}<span class="tag-guanghe">光合</span>
+          {% elif src_tag == 'cube' %}<span class="tag-cube">拍照魔方</span>
+          {% else %}<span class="tag-godzilla">哥斯拉</span>{% endif %}
+        </td>
+        <td style="font-weight:700">
+          {{ fmt(s.get('products',0)) }}
+          {% set fc = s.get('flaw_count', 0) or raw.get('flaw_count', 0) %}
+          {% if fc and fc > 0 %}
+          <div style="font-size:11px;font-weight:500;color:#ef4444;margin-top:2px">含瑕疵图 {{ fc }}</div>
+          {% endif %}
+        </td>
+        <td style="font-size:12px;color:var(--text2);line-height:1.7">
+          {# 设备编号纵向排列：逗号分隔的每个编号独占一行 #}
+          {% set mid = raw.get('machine_id','') or '' %}
+          {% if mid %}
+            {% for item in mid.split(',') %}
+            <div>{{ item.strip() }}</div>
+            {% endfor %}
+          {% else %}
+            –
+          {% endif %}
+        </td>
+        <td style="font-weight:700">{{ '%.1f'|format(s.get('hours',0)) if s.get('hours') else '-' }}</td>
+        <td class="font-bold">{{ s.get('upph',0) }}</td>
+        <td>
+          <div class="achieve-cell">
+            <div class="progress-wrap">
+              <div class="progress-bar {% if qualified %}progress-pass{% else %}progress-fail{% endif %}" style="width:{{ [ach, 100]|min }}%"></div>
+            </div>
+            <span class="achieve-pct {% if qualified %}txt-pass{% else %}txt-fail{% endif %}">{{ '%.1f'|format(ach) }}%</span>
+            {% if s.get('short_hours') %}<span class="badge-short" title="工作时长过短，达成率可能失真">超短工时</span>{% endif %}
+            <span class="{% if qualified %}badge-pass{% else %}badge-fail{% endif %}">{% if qualified %}达标{% else %}未达标{% endif %}</span>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <h3>暂无今日拍照数据</h3>
+    <p>点击「刷新数据」后将拉取最新数据源</p>
+  </div>
+  {% endif %}
+</div>
+
+{# ═══ 时段处理量 ═══ #}
+<div class="auto-table-wrap anim delay-4" id="photoHourlyWrap">
+  <div class="section-header">
+    <div class="section-title"><span style="margin-right:4px">📊</span>时段处理量</div>
+    <div class="section-note">按小时统计 · 当前：<strong style="color:var(--text)">全部</strong></div>
+  </div>
+  {% if ps_list %}
+  {# 收集所有时段标签并排序 #}
+  {% set all_hours_raw = [] %}
+  {% for s in ps_list %}
+  {% for hk in (s.get('hourly_counts') or {}).keys() %}
+  {% if hk not in all_hours_raw %}{% if all_hours_raw.append(hk) %}{% endif %}{% endif %}
+  {% endfor %}
+  {% endfor %}
+  {% set sorted_hrs = [] %}
+  {% for h in [9,10,11,12,13,14,15,16,17,18,19] %}
+  {% if h|string in all_hours_raw %}{% if sorted_hrs.append(h|string) %}{% endif %}{% endif %}
+  {% endfor %}
+
+  <table class="auto-table hourly-table" id="photoHourlyTable">
+    <colgroup>
+      <col style="width:6%">
+      <col style="width:8%">
+      {% for h in sorted_hrs %}
+      <col style="width:{{ (58 / (sorted_hrs|length))|round(1) }}%">
+      {% endfor %}
+      <col style="width:7%">
+      <col style="width:6%">
+      <col style="width:9%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>排名</th>
+        <th>姓名</th>
+        <th>工号</th>
+        {% for h in sorted_hrs %}
+        <th class="bg-orange">{{ '%02d:00-%02d:00'|format(h|int, (h|int + 1)) }}</th>
+        {% endfor %}
+        <th class="bg-orange" style="font-weight:700">合计</th>
+        <th class="bg-purple">日标/件</th>
+        <th>达成率</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in ps_list %}
+      {% set hc = s.get('hourly_counts',{}) or {} %}
+      {% set row_total = hc.values()|sum|int %}
+      {% set hr_ach = ph_rates.get(s.get('name',''), 0) %}{# 时段综合达成率（与人员明细统一口径） #}
+      <tr>
+        <td>
+          {% if s.get('rank', 0) == 1 %}<span class="rank-medal rank-gold">1</span>
+          {% elif s.get('rank', 0) == 2 %}<span class="rank-medal rank-silver">2</span>
+          {% elif s.get('rank', 0) == 3 %}<span class="rank-medal rank-bronze">3</span>
+          {% else %}<span style="color:var(--text2);font-weight:600">{{ s.get('rank', loop.index) }}</span>{% endif %}
+        </td>
+        <td class="font-bold">{{ s.get('name','-') }}</td>
+        <td style="font-size:12px;color:var(--text2)">{{ s.get('employee_no','-') }}</td>
+        {% for h in sorted_hrs %}
+        <td class="hourly-num">{{ hc.get(h, 0) }}</td>
+        {% endfor %}
+        <td class="font-bold">{{ row_total }}</td>
+        <td>{{ '%.1f'|format(s.get('standard', 0)) if s.get('standard') else '-' }}</td>
+        <td>
+          <span style="{% if hr_ach >= 100 %}color:#16a34a;font-weight:600{% elif hr_ach >= 80 %}color:#ea580c;font-weight:600{% else %}color:#dc2626;font-weight:600{% endif %}">{{ '%.1f'|format(hr_ach) }}%</span>
+          {% if s.get('short_hours') %}<span class="badge-short" title="工作时长过短，达成率可能失真">超短工时</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {# 单小时延展行 — 用后端 pd.hourly_summary 避免 Jinja2 for 作用域 bug #}
+      {% set hs = pd.get('hourly_summary', {}) or {} %}
+      {% set by_hour = hs.get('by_hour',{}) %}
+      <tr style="background:#fefce8;border-top:2px solid #fbbf24">
+        <td><span style="font-size:14px;color:#854d0e;font-weight:900">∑</span></td>
+        <td style="color:#854d0e;font-weight:800;font-size:14px">单小时运能</td>
+        <td><span style="color:#9ca3af;font-size:13px">–</span></td>
+        {% for h in sorted_hrs %}
+        <td class="total-num" style="font-weight:900;font-size:15px;color:#b45309">{{ by_hour.get(h, 0) }}</td>
+        {% endfor %}
+        <td class="total-num" style="font-weight:900;font-size:15px;color:#b45309">{{ hs.get('total', 0) }}</td>
+        <td><span style="color:#7c3aed;font-weight:700;font-size:13px">–</span></td>
+        <td><span style="color:#9ca3af;font-weight:600;font-size:13px">–</span></td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <h3>暂无今日时段数据</h3>
+    <p>当前无拍照时段记录</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshPhoto(btn) {
+  btn.disabled = true; btn.innerHTML = '⟳ 刷新中...';
+  fetch('/api/photo/refresh', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      btn.disabled = false; btn.innerHTML = '↻ 刷新数据';
+      if (res.ok) { if (res.session_expired) alert('数据源登录已失效，未获取到新数据，请先恢复数据源会话'); location.reload(); }
+      else alert('刷新失败: ' + (res.error || '未知错误'));
+    })
+    .catch(function(err) {
+      btn.disabled = false; btn.innerHTML = '↻ 刷新数据';
+      alert('网络错误: ' + err.message);
+    });
+}
+</script>
+{% endblock %}

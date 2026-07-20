@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}系统设置 - 效率看板{% endblock %}
+{% block page_title %}系统设置{% endblock %}
+{% block content %}
+{% set c = config or {} %}
+<div class="grid-2">
+  <div class="card anim delay-1">
+    <div class="card-header"><div class="card-title"><span class="icon icon-indigo">⚙</span>效率标准</div></div>
+    <table class="data-table">
+      <thead><tr><th>指标</th><th>标准值</th><th>单位</th></tr></thead>
+      <tbody>
+      <tr><td class="font-bold">拍照·全职</td><td style="font-size:20px;font-weight:800;color:var(--accent)">{{ c.get('godzilla_fulltime', '-') }}</td><td>UPPH</td></tr>
+      <tr><td class="font-bold">拍照·兼职</td><td style="font-size:20px;font-weight:800;color:var(--accent)">{{ c.get('godzilla_parttime', '-') }}</td><td>UPPH</td></tr>
+      <tr><td class="font-bold">魔镜·质检</td><td style="font-size:20px;font-weight:800;color:var(--green)">{{ c.get('mirror', '-') }}</td><td>UPPH</td></tr>
+      <tr><td class="font-bold">APP·安卓</td><td style="font-size:20px;font-weight:800;color:var(--orange)">{{ c.get('app_android', '-') }}</td><td>UPPH</td></tr>
+      <tr><td class="font-bold">APP·苹果</td><td style="font-size:20px;font-weight:800;color:var(--purple)">{{ c.get('app_ios', '-') }}</td><td>UPPH</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card anim delay-2">
+    <div class="card-header"><div class="card-title"><span class="icon icon-green">◉</span>系统状态</div></div>
+    <div style="padding:16px 0">
+      <p style="margin:12px 0;display:flex;justify-content:space-between"><span>数据缓存目录</span><span style="color:var(--text2);font-size:13px">cache/</span></p>
+      <p style="margin:12px 0;display:flex;justify-content:space-between"><span>服务端口</span><span style="color:var(--text2);font-size:13px">8080</span></p>
+      <p style="margin:12px 0;display:flex;justify-content:space-between"><span>自动刷新</span><span style="color:var(--text2);font-size:13px">每小时第5分钟</span></p>
+      <p style="margin:12px 0;display:flex;justify-content:space-between"><span>数据推送</span><span style="color:var(--text2);font-size:13px">每小时第30分钟</span></p>
+      <p style="margin:12px 0;display:flex;justify-content:space-between"><span>原始扣子应用</span><a href="http://127.0.0.1:5000" style="color:var(--accent);font-size:13px;font-weight:600">:5000 →</a></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

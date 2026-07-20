@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}异常预警 - 效率看板{% endblock %}
+{% block page_title %}异常预警{% endblock %}
+{% block content %}
+<style>
+.alert-banner { border-radius: var(--radius); padding: 18px 24px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow); animation: fadeInUp .3s ease-out; }
+.alert-banner.has-alert { background: linear-gradient(135deg, #fff3e0, #ffe0e0); border: 1px solid #ffccbc; }
+.alert-banner.safe { background: linear-gradient(135deg, #e8f5e9, #e0f2f1); border: 1px solid #c8e6c9; }
+.alert-banner .ab-icon { font-size: 34px; }
+.alert-banner .ab-text { flex: 1; }
+.alert-banner .ab-title { font-size: 17px; font-weight: 800; }
+.alert-banner.has-alert .ab-title { color: #c62828; }
+.alert-banner.safe .ab-title { color: #2e7d32; }
+.alert-banner .ab-sub { font-size: 13px; color: var(--text2); margin-top: 3px; }
+
+.threshold-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.threshold-bar .tb-label { font-size: 13px; color: var(--text2); font-weight: 500; }
+.chip { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: #fff; font-size: 13px; cursor: pointer; transition: all .12s; font-weight: 600; color: var(--text2); }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── 4通道卡片（参考各组人员效率页样式） ── */
+.ch-row { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.ch-card {
+  flex: 1; min-width: 200px;
+  border-radius: 12px; padding: 20px 22px;
+  display: flex; gap: 16px; align-items: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  border: 2px solid transparent;
+  transition: transform .15s, box-shadow .15s;
+}
+.ch-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.09); }
+/* 各通道不同浅色底 */
+.ch-app   { background: #eff6ff; border-color: #dbeafe; }
+.ch-gz    { background: #fff7ed; border-color: #ffedd5; }
+.ch-mj    { background: #faf5ff; border-color: #ede9fe; }
+.ch-ph    { background: #f0fdf4; border-color: #dcfce7; }
+
+.ch-icon {
+  width: 50px; height: 50px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0;
+}
+.ch-app .ch-icon   { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
+.ch-gz .ch-icon    { background: linear-gradient(135deg, #ffedd5, #fed7aa); }
+.ch-mj .ch-icon    { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+.ch-ph .ch-icon    { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
+
+.ch-body { flex: 1; min-width: 0; }
+.ch-label { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.ch-stats { display: flex; align-items: baseline; gap: 18px; }
+.ch-stat { display: flex; flex-direction: column; align-items: center; }
+.ch-num { font-size: 28px; font-weight: 700; line-height: 1.15; color: var(--text); }
+.ch-sub { font-size: 11px; color: var(--text3); margin-top: 2px; font-weight: 500; }
+
+.alert-table-wrap { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; }
+.alert-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.alert-table th { text-align: left; padding: 12px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--text2); border-bottom: 2px solid var(--border); font-weight: 600; background: #fafbfc; }
+.alert-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: middle; }
+.alert-table tr:last-child td { border-bottom: none; }
+.alert-table tr.sev-crit { background: #fff5f5; }
+.alert-table tr.sev-crit:hover td { background: #ffeaea; }
+.alert-table tr.sev-warn { background: #fffdf5; }
+.alert-table tr.sev-warn:hover td { background: #fff8e6; }
+.sev-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+.sev-dot.crit { background: var(--red); }
+.sev-dot.warn { background: var(--orange); }
+.rate-cell { display: flex; align-items: center; gap: 10px; }
+.rate-bar { width: 90px; height: 7px; background: #eee; border-radius: 4px; overflow: hidden; flex-shrink: 0; }
+.rate-bar > span { display: block; height: 100%; border-radius: 4px; }
+.rate-val { font-weight: 800; font-size: 15px; }
+.rate-val.crit { color: var(--red); }
+.rate-val.warn { color: var(--orange); }
+.gap-badge { background: #ffebee; color: #c62828; padding: 2px 9px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+.tag-app { background: #eef0ff; color: var(--accent); }
+.tag-gz { background: #e3f2fd; color: #1976d2; }
+.tag-mj { background: #ede7f6; color: #7b1fa2; }
+.tag-ph { background: #e8f5e9; color: #2e7d32; }
+</style>
+
+<div class="alert-banner {{ 'has-alert' if total > 0 else 'safe' }}">
+  <div class="ab-icon">{{ '⚠' if total > 0 else '✓' }}</div>
+  <div class="ab-text">
+    <div class="ab-title">{% if total > 0 %}今日 {{ total }} 人效率低于 {{ threshold }}%，请关注{% else %}今日各通道效率均达标，无预警{% endif %}</div>
+    <div class="ab-sub">监控范围：APP / 哥斯拉 / 魔镜 / 拍照 四个通道当日效率达成率</div>
+  </div>
+</div>
+
+<div class="threshold-bar">
+  <span class="tb-label">预警阈值：</span>
+  <span class="chip" data-th="80">80%</span>
+  <span class="chip" data-th="70">70%</span>
+  <span class="chip" data-th="60">60%</span>
+  <span class="chip" data-th="50">50%</span>
+</div>
+
+<div id="chSummary"></div>
+
+<div class="alert-table-wrap">
+  <table class="alert-table">
+    <colgroup>
+      <col style="width:9%"><col style="width:10%"><col style="width:10%">
+      <col style="width:16%"><col style="width:12%"><col style="width:10%">
+      <col style="width:11%"><col style="width:11%"><col style="width:11%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>状态</th><th>姓名</th><th>通道</th><th>当日效率</th>
+        <th>目标 UPPH</th><th>缺口</th><th>处理量</th><th>UPPH</th><th>类型</th>
+      </tr>
+    </thead>
+    <tbody id="alertBody"></tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ALERTS = {{ alerts | tojson }};
+const CH_COUNTS = {{ ch_counts | tojson }};
+const THRESHOLD = {{ threshold }};
+
+const chMeta = {
+  'APP':   {cls:'tag-app', label:'APP'},
+  '哥斯拉':{cls:'tag-gz',  label:'🦎 哥斯拉'},
+  '魔镜':  {cls:'tag-mj',  label:'🔮 魔镜'},
+  '拍照':  {cls:'tag-ph',  label:'📷 拍照'},
+};
+
+let curTh = THRESHOLD;
+
+function filtered(th){
+  return ALERTS.filter(a => a.rate < th).sort((a,b)=> a.rate - b.rate);
+}
+
+function renderSummary(th){
+  const counts = {};
+  filtered(th).forEach(a => counts[a.channel] = (counts[a.channel]||0)+1);
+  const totalAlert = Object.values(counts).reduce((s,n)=>s+n,0);
+  const order = ['APP','哥斯拉','魔镜','拍照'];
+  const iconMap = {'APP':'📱','哥斯拉':'🦎','魔镜':'🔮','拍照':'📷'};
+  const labelMap = {'APP':'APP预警','哥斯拉':'哥斯拉预警','魔镜':'魔镜预警','拍照':'拍照预警'};
+  const clsMap = {'APP':'ch-app','哥斯拉':'ch-gz','魔镜':'ch-mj','拍照':'ch-ph'};
+  const el = document.getElementById('chSummary');
+  el.innerHTML = `<div class="ch-row">${order.map(ch=>{
+    const c = counts[ch]||0;
+    return `<div class="ch-card ${clsMap[ch]}">
+      <div class="ch-icon">${iconMap[ch]}</div>
+      <div class="ch-body">
+        <div class="ch-label">${labelMap[ch]}</div>
+        <div class="ch-stats"><div class="ch-stat"><div class="ch-num" style="color:${c>0?'#c62828':'#2e7d32'}">${c}</div><div class="ch-sub">预警人数</div></div></div>
+      </div></div>`;
+  }).join('')}</div>`;
+}
+
+function renderTable(th){
+  const rows = filtered(th);
+  const body = document.getElementById('alertBody');
+  if(!rows.length){
+    body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text2)">🎉 当前阈值（${th}%）下无预警人员</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map(a=>{
+    const m = chMeta[a.channel] || {cls:'',label:a.channel};
+    const sev = a.severity;
+    const w = Math.min(a.rate, 100);
+    const barColor = sev==='crit' ? 'var(--red)' : 'var(--orange)';
+    return `<tr class="sev-${sev}">
+      <td><span class="sev-dot ${sev}"></span>${sev==='crit'?'严重':'偏低'}</td>
+      <td><b>${a.name}</b></td>
+      <td><span class="tag ${m.cls}">${m.label}</span></td>
+      <td><div class="rate-cell">
+        <div class="rate-bar"><span style="width:${w}%;background:${barColor}"></span></div>
+        <span class="rate-val ${sev}">${a.rate.toFixed(1)}%</span>
+      </div></td>
+      <td>${a.standard ? a.standard.toFixed(1) : '-'}</td>
+      <td><span class="gap-badge">-${a.gap.toFixed(1)}</span></td>
+      <td>${a.products}</td>
+      <td>${a.upph ? a.upph.toFixed(1) : '-'}</td>
+      <td>${a.type || '-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAll(th){
+  // 高亮选中阈值
+  document.querySelectorAll('.chip').forEach(c=> c.classList.toggle('active', Number(c.dataset.th)===th));
+  renderSummary(th);
+  renderTable(th);
+}
+
+document.querySelectorAll('.chip').forEach(c=>{
+  if(Number(c.dataset.th)===curTh) c.classList.add('active');
+  c.addEventListener('click', ()=>{ curTh = Number(c.dataset.th); renderAll(curTh); });
+});
+
+renderAll(curTh);
+</script>
+{% endblock %}

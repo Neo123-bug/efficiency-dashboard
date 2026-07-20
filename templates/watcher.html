@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}综合报表 - 效率看板{% endblock %}
+{% block page_title %}综合报表 (Watcher){% endblock %}
+{% block content %}
+<div class="card anim delay-1">
+  <div class="card-header"><div class="card-title"><span class="icon icon-cyan">◉</span>Watcher 综合数据</div></div>
+  {% if data and data.get('widgets') %}
+    <p style="color:var(--text2);font-size:14px;margin-bottom:16px">已加载 {{ data.widgets|length if data.widgets is iterable and data.widgets is not string else '--' }} 个模块数据</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+    {% for k, v in (data.widgets|default({})).items() %}
+      <div style="padding:16px;background:#f8f9ff;border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">{{ k }}</div>
+        <div style="font-size:20px;font-weight:700">{{ v }}</div>
+      </div>
+    {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">
+      <span class="empty-icon">◉</span>
+      <h3>Watcher 数据未就绪</h3>
+      <p>需要 C:\watcher_probe\widgets_config.json 配置文件</p>
+      <p style="font-size:12px;color:var(--text2);margin-top:8px">或等待后台数据刷新任务执行</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

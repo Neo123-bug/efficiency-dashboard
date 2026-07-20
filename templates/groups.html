@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+{% block title %}各组人员效率 - 效率看板{% endblock %}
+{% block page_title %}{% endblock %}
+{% block content %}
+
+<style>
+/* ═══════════════ 各组人员效率 — 参考模版样式 ═══════════════ */
+
+/* ── 页面标题 ── */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.page-title { font-size: 22px; font-weight: 800; color: var(--text); }
+.page-time { font-size: 13px; color: var(--text2); }
+
+/* ── 4通道卡片行（各通道不同浅色底） ── */
+.ch-row { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+.ch-card {
+  flex: 1; min-width: 220px;
+  background: #fff; border-radius: 12px; padding: 22px 24px;
+  display: flex; gap: 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  border: 2px solid transparent;
+  cursor: pointer; transition: all .2s ease;
+}
+.ch-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.1); }
+/* 各通道卡片浅色底 */
+.ch-app    { background: #eff6ff; border-color: #dbeafe; }
+.ch-godz   { background: #fff7ed; border-color: #ffedd5; }
+.ch-mirror { background: #faf5ff; border-color: #ede9fe; }
+.ch-photo  { background: #f0fdf4; border-color: #dcfce7; }
+/* 激活态（当前选中通道） */
+.ch-card.active { border-color: #93c5fd; box-shadow: 0 0 0 4px rgba(147,197,253,.15), 0 4px 14px rgba(59,130,246,.12); }
+
+.ch-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; flex-shrink: 0;
+}
+/* 各通道图标底色（参考图：蓝/橙/紫/绿） */
+.ch-app .ch-icon    { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
+.ch-godz .ch-icon   { background: linear-gradient(135deg, #ffedd5, #fed7aa); }
+.ch-mirror .ch-icon { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+.ch-photo .ch-icon  { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
+
+.ch-body { flex: 1; min-width: 0; }
+.ch-label { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
+.ch-stats-row { display: flex; align-items: baseline; justify-content: space-evenly; }
+.ch-item { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.ch-val { font-size: 28px; font-weight: 700; line-height: 1.15; color: var(--text); }
+.ch-lbl { font-size: 12px; color: var(--text3); margin-top: 3px; font-weight: 500; }
+
+/* ── 对比条形图区（参考模版） ── */
+.compare-section {
+  background: #fff; border-radius: 12px; padding: 26px 28px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  border: 1.5px solid #eef2f7; margin-bottom: 28px;
+}
+.compare-title { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 20px; }
+.compare-row { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.compare-label { width: 90px; font-size: 14px; font-weight: 700; color: var(--text); flex-shrink: 0; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.compare-icon { font-size: 18px; line-height: 1; }
+.compare-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.dot-blue { background: #3b82f6; } .dot-orange { background: #ea580c; }
+.dot-purple { background: #a855f7; } .dot-green { background: #16a34a; }
+.dot-red   { background: #dc2626; }
+.compare-bar-track { flex: 1; height: 20px; background: #f1f5f9; border-radius: 10px; overflow: hidden; position: relative; }
+.compare-bar-fill { height: 100%; border-radius: 10px; transition: width .6s ease; }
+/* 条形图填充 — 纯色（无渐变），按达标等级，颜色加深 */
+.fill-pass  { background: #22c55e; } /* 达标 ≥100% 绿 */
+.fill-good  { background: #f97316; } /* 良好 80~100% 橘 */
+.fill-fail  { background: #ef4444; } /* 未达标 <80% 红 */
+.compare-right { width: 88px; text-align: right; flex-shrink: 0; }
+.compare-pct { font-size: 16px; font-weight: 800; color: var(--text); }
+.compare-legend { display: flex; gap: 24px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #f1f5f9; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text2); font-weight: 600; }
+
+/* ── 区块标题 ── */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.section-title { font-size: 17px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.section-count { font-size: 13px; color: var(--text2); }
+
+/* ── 人员明细表（参考模版样式） ── */
+.detail-section {
+  background: #fff; border-radius: 12px; padding: 24px 28px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  border: 1.5px solid #eef2f7; margin-bottom: 28px;
+}
+.detail-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.detail-table th {
+  background: #fafbfc; color: var(--text2); font-size: 13px;
+  font-weight: 700; padding: 11px 8px; text-align: center;
+  border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+}
+.detail-table td {
+  padding: 11px 8px; text-align: center; vertical-align: middle;
+  font-size: 13px; font-weight: 600; color: var(--text);
+  border-bottom: 1px solid #f1f5f9; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.detail-table tbody tr:hover td { background: #fafbff; }
+.detail-table .td-name { text-align: center !important; font-weight: 800 !important; font-size: 14px !important; }
+
+/* 排名奖牌 */
+.rank-medal {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-size: 13px; font-weight: 900; color: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,.15);
+}
+.rank-gold { background: linear-gradient(135deg,#fcd34d,#f59e0b); }
+.rank-silver { background: linear-gradient(135deg,#e2e8f0,#94a3b8); }
+.rank-bronze { background: linear-gradient(135deg,#fed7aa,#fdba74); }
+
+/* 胶囊标签 */
+.tag-fulltime { background: #dbeafe; color: #1d4ed8; padding: 3px 11px; border-radius: 10px; font-size: 12px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-parttime { background: #fef3c7; color: #b45309; padding: 3px 11px; border-radius: 10px; font-size: 12px; font-weight: 700; display: inline-block; white-space: nowrap; }
+
+/* 达成率单元格 */
+.rate-cell { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.rate-pct { font-size: 14px; font-weight: 800; }
+.r-good { color: #16a34a; } .r-warn { color: #ea580c; } .r-bad { color: #dc2626; }
+.badge-sm { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 8px; white-space: nowrap; }
+.bg-pass { background: #dcfce7; color: #15803d; }
+.bg-good { background: #fef3c7; color: #b45309; }
+.bg-fail { background: #fee2e2; color: #dc2626; }
+
+/* 空状态 */
+.empty-state { text-align: center; padding: 48px 20px; color: var(--text2); }
+.empty-state h3 { font-size: 16px; color: var(--text); margin-bottom: 4px; }
+.empty-state p { font-size: 13px; }
+
+/* 动画 */
+.anim { animation: fadeUp .45s ease both; }
+.d1 { animation-delay: .05s; } .d2 { animation-delay: .12s; } .d3 { animation-delay: .19s; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+/* 响应式 */
+@media (max-width: 1100px) { .ch-row { flex-wrap: wrap; } .ch-card { min-width: calc(50% - 10px); } }
+@media (max-width: 700px)  { .ch-card { min-width: 100%; } }
+</style>
+
+<!-- 页面标题 -->
+<div class="page-header">
+  <div class="page-title">各组人员效率</div>
+  <div class="page-time">数据更新时间：{{ cache_time }}</div>
+</div>
+
+{# ═══ 4个KPI通道卡片（可点击切换明细表） ═══ #}
+<div class="ch-row anim d1">
+  {% for ch in channels %}
+  {% set ck = ch.key %}
+  {% set cls = 'ch-app' if ck=='app' else ('ch-godz' if ck=='godzilla' else ('ch-mirror' if ck=='mirror' else 'ch-photo')) %}
+  <div class="ch-card {{ cls }} {% if loop.first %}active{% endif %}" data-channel="{{ ck }}" onclick="switchChannel('{{ ck }}', this)">
+    <div class="ch-icon">{{ ch.icon }}</div>
+    <div class="ch-body">
+      <div class="ch-label">{{ ch.label }}</div>
+      <div class="ch-stats-row">
+        <div class="ch-item">
+          <span class="ch-val">{{ ch.count }}</span><span class="ch-lbl">人数</span>
+        </div>
+        <div class="ch-item">
+          <span class="ch-val">{{ ch.total }}</span><span class="ch-lbl">台数</span>
+        </div>
+        <div class="ch-item">
+          <span class="ch-val">{{ '%.1f'|format(ch.achieve) }}%</span><span class="ch-lbl">达成率</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ═══ 各组效率对比（条形颜色按达标/良好/未达标） ═══ #}
+<div class="compare-section anim d2">
+  <div class="compare-title">各组效率对比</div>
+  {% for ch in channels %}
+  {% set bw = [ch.achieve, 100]|min|round(1) %}
+  {% set ck = ch.key %}
+  {# 根据达成率决定颜色等级 #}
+  {% if ch.achieve >= 100 %}
+    {% set lvl = 'pass' %}
+    {% set dot_cls = 'dot-green' %}
+  {% elif ch.achieve >= 80 %}
+    {% set lvl = 'good' %}
+    {% set dot_cls = 'dot-orange' %}
+  {% else %}
+    {% set lvl = 'fail' %}
+    {% set dot_cls = 'dot-red' %}
+  {% endif %}
+  <div class="compare-row">
+    <div class="compare-label">
+      <span class="compare-icon">{{ ch.icon }}</span>
+      <span class="compare-dot {{ dot_cls }}"></span>
+      {{ ch.label.replace('人员效率','') }}
+    </div>
+    <div class="compare-bar-track">
+      <div class="compare-bar-fill fill-{{ lvl }}" style="width:{{ bw }}%"></div>
+    </div>
+    <div class="compare-right">
+      <span class="compare-pct">{{ '%.1f'|format(ch.achieve) }}%</span>
+      {% if ch.achieve >= 100 %}<span class="badge-sm bg-pass" style="margin-left:4px">达标</span>
+      {% elif ch.achieve >= 80 %}<span class="badge-sm bg-good" style="margin-left:4px">良好</span>
+      {% else %}<span class="badge-sm bg-fail" style="margin-left:4px">未达标</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  <div class="compare-legend">
+    <div class="legend-item"><span class="compare-dot dot-green"></span> 达标 (&ge;100%)</div>
+    <div class="legend-item"><span class="compare-dot dot-orange"></span> 良好 (80%-100%)</div>
+    <div class="legend-item"><span class="compare-dot" style="background:#dc2626"></span> 未达标 (&lt;80%)</div>
+  </div>
+</div>
+
+{# ═══ 人员效率明细表（4通道Tab切换） ═══ #}
+<div class="detail-section anim d3" id="detailSection">
+  <div class="section-header">
+    <div class="section-title" id="detailTitle"><span style="margin-right:4px">📋</span>APP人员效率明细</div>
+    <div class="section-count" id="detailCount">{{ app_detail|length }} 人</div>
+  </div>
+
+  {# ── APP明细 ── #}
+  <table class="detail-table" id="tbl-app" style="display:{% if app_detail %}table{% else %}none{% endif %}">
+    <colgroup><col style="width:7%"><col style="width:12%"><col style="width:9%"><col style="width:11%"><col style="width:17%"><col style="width:15%"><col style="width:15%"><col style="width:14%"></colgroup>
+    <thead><tr><th>排名</th><th>姓名</th><th>类型</th><th>岗位</th><th>今日效率达成</th><th>近7天效率达成</th><th>近30天效率达成</th><th>月均UPPH</th></tr></thead>
+    <tbody>
+      {% for s in app_detail %}
+      {% set ar = s.get('achievement_rate',0) or 0 %}
+      <tr>
+        <td>{% if loop.index==1 %}<span class="rank-medal rank-gold">1</span>{% elif loop.index==2 %}<span class="rank-medal rank-silver">2</span>{% elif loop.index==3 %}<span class="rank-medal rank-bronze">3</span>{% else %}<span style="color:var(--text2);font-weight:600;font-size:13px">{{ loop.index }}</span>{% endif %}</td>
+        <td class="td-name">{{ s.name }}</td>
+        <td>{% if '兼职' in s.type %}<span class="tag-parttime">兼职</span>{% else %}<span class="tag-fulltime">全职</span>{% endif %}</td>
+        <td>{{ s.position }}</td>
+        <td><div class="rate-cell"><span class="rate-pct {% if ar>=100 %}r-good{% elif ar>=80 %}r-warn{% else %}r-bad{% endif %}">{{ '%.1f'|format(ar) }}%</span>{% if ar>=100 %}<span class="badge-sm bg-pass">{% elif ar>=80 %}<span class="badge-sm bg-good">{% else %}<span class="badge-sm bg-fail">{% endif %}{% if ar>=100 %}达标{% elif ar>=80 %}良好{% else %}未达标{% endif %}</span></div></td>
+        <td style="color:var(--text2)">—</td><td style="color:var(--text2)">—</td>
+        <td style="font-weight:700">{{ '%.1f'|format(s.get('upph',0)) or 0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {# ── 哥斯拉明细 ── #}
+  <table class="detail-table" id="tbl-godzilla" style="display:none">
+    <colgroup><col style="width:7%"><col style="width:12%"><col style="width:9%"><col style="width:11%"><col style="width:17%"><col style="width:15%"><col style="width:15%"><col style="width:14%"></colgroup>
+    <thead><tr><th>排名</th><th>姓名</th><th>类型</th><th>岗位</th><th>今日效率达成</th><th>近7天效率达成</th><th>近30天效率达成</th><th>月均UPPH</th></tr></thead>
+    <tbody>
+      {% for s in godzilla_detail %}
+      {% set ar = s.get('achievement_rate',0) or 0 %}
+      <tr>
+        <td>{% if loop.index==1 %}<span class="rank-medal rank-gold">1</span>{% elif loop.index==2 %}<span class="rank-medal rank-silver">2</span>{% elif loop.index==3 %}<span class="rank-medal rank-bronze">3</span>{% else %}<span style="color:var(--text2);font-weight:600;font-size:13px">{{ loop.index }}</span>{% endif %}</td>
+        <td class="td-name">{{ s.name }}</td>
+        <td>{% if '兼职' in s.type %}<span class="tag-parttime">兼职</span>{% else %}<span class="tag-fulltime">全职</span>{% endif %}</td>
+        <td>{{ s.position }}</td>
+        <td><div class="rate-cell"><span class="rate-pct {% if ar>=100 %}r-good{% elif ar>=80 %}r-warn{% else %}r-bad{% endif %}">{{ '%.1f'|format(ar) }}%</span>{% if ar>=100 %}<span class="badge-sm bg-pass">{% elif ar>=80 %}<span class="badge-sm bg-good">{% else %}<span class="badge-sm bg-fail">{% endif %}{% if ar>=100 %}达标{% elif ar>=80 %}良好{% else %}未达标{% endif %}</span></div></td>
+        <td style="color:var(--text2)">—</td><td style="color:var(--text2)">—</td>
+        <td style="font-weight:700">{{ '%.1f'|format(s.get('upph',0)) or 0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {# ── 魔镜明细 ── #}
+  <table class="detail-table" id="tbl-mirror" style="display:none">
+    <colgroup><col style="width:7%"><col style="width:12%"><col style="width:9%"><col style="width:11%"><col style="width:17%"><col style="width:15%"><col style="width:15%"><col style="width:14%"></colgroup>
+    <thead><tr><th>排名</th><th>姓名</th><th>类型</th><th>岗位</th><th>今日效率达成</th><th>近7天效率达成</th><th>近30天效率达成</th><th>月均UPPH</th></tr></thead>
+    <tbody>
+      {% for s in mirror_detail %}
+      {% set ar = s.get('achievement_rate',0) or 0 %}
+      <tr>
+        <td>{% if loop.index==1 %}<span class="rank-medal rank-gold">1</span>{% elif loop.index==2 %}<span class="rank-medal rank-silver">2</span>{% elif loop.index==3 %}<span class="rank-medal rank-bronze">3</span>{% else %}<span style="color:var(--text2);font-weight:600;font-size:13px">{{ loop.index }}</span>{% endif %}</td>
+        <td class="td-name">{{ s.name }}</td>
+        <td>{% if '兼职' in s.type %}<span class="tag-parttime">兼职</span>{% else %}<span class="tag-fulltime">全职</span>{% endif %}</td>
+        <td>{{ s.position }}</td>
+        <td><div class="rate-cell"><span class="rate-pct {% if ar>=100 %}r-good{% elif ar>=80 %}r-warn{% else %}r-bad{% endif %}">{{ '%.1f'|format(ar) }}%</span>{% if ar>=100 %}<span class="badge-sm bg-pass">{% elif ar>=80 %}<span class="badge-sm bg-good">{% else %}<span class="badge-sm bg-fail">{% endif %}{% if ar>=100 %}达标{% elif ar>=80 %}良好{% else %}未达标{% endif %}</span></div></td>
+        <td style="color:var(--text2)">—</td><td style="color:var(--text2)">—</td>
+        <td style="font-weight:700">{{ '%.1f'|format(s.get('upph',0)) or 0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {# ── 拍照明细 ── #}
+  <table class="detail-table" id="tbl-photo" style="display:none">
+    <colgroup><col style="width:7%"><col style="width:12%"><col style="width:9%"><col style="width:11%"><col style="width:17%"><col style="width:15%"><col style="width:15%"><col style="width:14%"></colgroup>
+    <thead><tr><th>排名</th><th>姓名</th><th>类型</th><th>岗位</th><th>今日效率达成</th><th>近7天效率达成</th><th>近30天效率达成</th><th>月均UPPH</th></tr></thead>
+    <tbody>
+      {% for s in photo_detail %}
+      {% set ar = s.get('achievement_rate',0) or 0 %}
+      <tr>
+        <td>{% if loop.index==1 %}<span class="rank-medal rank-gold">1</span>{% elif loop.index==2 %}<span class="rank-medal rank-silver">2</span>{% elif loop.index==3 %}<span class="rank-medal rank-bronze">3</span>{% else %}<span style="color:var(--text2);font-weight:600;font-size:13px">{{ loop.index }}</span>{% endif %}</td>
+        <td class="td-name">{{ s.name }}</td>
+        <td>{% if '兼职' in s.type %}<span class="tag-parttime">兼职</span>{% else %}<span class="tag-fulltime">全职</span>{% endif %}</td>
+        <td>{{ s.position }}</td>
+        <td><div class="rate-cell"><span class="rate-pct {% if ar>=100 %}r-good{% elif ar>=80 %}r-warn{% else %}r-bad{% endif %}">{{ '%.1f'|format(ar) }}%</span>{% if ar>=100 %}<span class="badge-sm bg-pass">{% elif ar>=80 %}<span class="badge-sm bg-good">{% else %}<span class="badge-sm bg-fail">{% endif %}{% if ar>=100 %}达标{% elif ar>=80 %}良好{% else %}未达标{% endif %}</span></div></td>
+        <td style="color:var(--text2)">—</td><td style="color:var(--text2)">—</td>
+        <td style="font-weight:700">{{ '%.1f'|format(s.get('upph',0)) or 0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {# 空状态占位 #}
+  <div id="emptyPlaceholder" class="empty-state" style="display:none">
+    <h3>暂无数据</h3>
+    <p>该通道暂无人员效率记录</p>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* 通道名称映射（用于切换标题） */
+var CH_NAMES = {
+  'app': 'APP人员效率明细',
+  'godzilla': '哥斯拉人员效率明细',
+  'mirror': '魔镜人员效率明细',
+  'photo': '拍照人员效率明细'
+};
+var CH_COUNTS = {
+  'app': {{ app_detail|length }},
+  'godzilla': {{ godzilla_detail|length }},
+  'mirror': {{ mirror_detail|length }},
+  'photo': {{ photo_detail|length }}
+};
+
+function switchChannel(key, cardEl) {
+  // 卡片激活态
+  document.querySelectorAll('.ch-card').forEach(function(c){ c.classList.remove('active'); });
+  cardEl.classList.add('active');
+  // 切换表格显示
+  document.querySelectorAll('.detail-table').forEach(function(t){ t.style.display = 'none'; });
+  var tbl = document.getElementById('tbl-' + key);
+  var empty = document.getElementById('emptyPlaceholder');
+  if (tbl && tbl.querySelector('tbody tr')) {
+    tbl.style.display = 'table';
+    empty.style.display = 'none';
+  } else {
+    empty.style.display = 'block';
+  }
+  // 更新标题和计数
+  document.getElementById('detailTitle').innerHTML = '<span style="margin-right:4px">📋</span>' + (CH_NAMES[key] || '');
+  document.getElementById('detailCount').textContent = (CH_COUNTS[key] || 0) + ' 人';
+}
+
+function refreshGroups(btn) {
+  btn.disabled = true; btn.innerHTML = '⟳ 刷新中...';
+  fetch('/api/refresh/all', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      btn.disabled = false; btn.innerHTML = '↻ 刷新数据';
+      if (res.status === 'started' || res.ok) location.reload();
+      else alert('刷新失败: ' + (res.error || res.message || '未知错误'));
+    })
+    .catch(function(err) {
+      btn.disabled = false; btn.innerHTML = '↻ 刷新数据';
+      alert('网络错误: ' + err.message);
+    });
+}
+</script>
+{% endblock %}

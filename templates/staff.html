@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% block title %}人员管理 - 成都辅助运营数据看板{% endblock %}
+{% block page_title %}{% endblock %}
+
+{% block content %}
+<style>
+/* ── 人员管理页面专用样式 ── */
+
+.page-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+}
+.page-toolbar .toolbar-left h2 { font-size: 22px; font-weight: 800; color: var(--text); margin: 0; }
+.btn-refresh {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: 10px;
+  background: #fff; color: var(--text2); font-size: 14px; font-weight: 600;
+  border: 1px solid var(--border); cursor: pointer; transition: all .2s;
+}
+.btn-refresh:hover { border-color: #d1d5db; background: #f9fafb; color: var(--text); }
+.btn-refresh.spin svg { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+.search-box {
+  padding: 9px 16px; border: 1px solid var(--border); border-radius: 10px;
+  font-size: 14px; width: 220px; outline: none; color: var(--text);
+  background: #fff; transition: border-color .2s;
+}
+.search-box:focus { border-color: #ffba42; }
+.search-box::placeholder { color: #b0b0b0; }
+
+/* ── 7 分类统计卡片 ── */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 14px; margin-bottom: 24px;
+}
+.cat-card {
+  border-radius: 14px; padding: 18px 16px 14px;
+  position: relative; overflow: hidden;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+  cursor: pointer; user-select: none;
+  border: 2px solid transparent;
+}
+.cat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.1); }
+.cat-card.active {
+  transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.12);
+  border-color: currentColor; opacity: .95;
+}
+.cat-label { font-size: 13px; font-weight: 700; margin-bottom: 8px; opacity: .85; }
+.cat-value { font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+.cat-unit { font-size: 12px; opacity: .6; font-weight: 500; }
+
+/* 各分类颜色 */
+.cat-app       { background: linear-gradient(135deg, #fff9e6, #ffefb8); color: #b8860b; border-color: #f0d060; }        /* APP 黄 */
+.cat-godzilla  { background: linear-gradient(135deg, #eaf2ff, #dce8fc); color: #2563eb; border-color: #93c5fd; }         /* 哥斯拉 蓝 */
+.cat-mirror    { background: linear-gradient(135deg, #e8f5ec, #d4ede0); color: #16a34a; border-color: #86efac; }          /* 魔镜 绿 */
+.cat-xray      { background: linear-gradient(135deg, #f3eeff, #eaddff); color: #7c3aed; border-color: #c4b5fd; }           /* Xray 紫 */
+.cat-charge    { background: linear-gradient(135deg, #ffeef2, #ffdce4); color: #dc2626; border-color: #fca5a5; }           /* 充电移交 红/粉 */
+.cat-photo     { background: linear-gradient(135deg, #fef6eb, #fce0ba); color: #d97706; border-color: #fcd34d; }            /* 拍照 橙 */
+.cat-privacy   { background: linear-gradient(135deg, #e8f9f5, #c4eee8); color: #0891b2; border-color: #67e8f9; }           /* 隐私/信息维修 青绿 */
+
+/* ── 筛选标签栏 ── */
+.filter-bar {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 18px; flex-wrap: wrap;
+}
+.filter-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 16px; border-radius: 20px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  border: 1.5px solid transparent; background: #f5f5f5; color: var(--text2);
+  transition: all .2s; white-space: nowrap;
+}
+.filter-pill:hover { background: #eee; }
+.filter-pill.active {
+  background: #ffba42; color: #fff; border-color: #ffba42;
+  font-weight: 600; box-shadow: 0 2px 8px rgba(255,186,66,.3);
+}
+
+/* ── 表格区域 ── */
+.staff-section {
+  background: #fff; border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.03); border: 1px solid rgba(0,0,0,.04);
+  overflow: hidden;
+}
+.section-header {
+  padding: 16px 24px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.section-header h4 { font-size: 15px; font-weight: 700; color: var(--text); margin: 0; }
+
+.staff-table-wrap { overflow-x: auto; }
+.staff-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+.staff-table thead th {
+  text-align: left; padding: 11px 16px; font-size: 12px; font-weight: 600;
+  color: var(--text2); border-bottom: 2px solid #f0f0f0;
+  background: #fafbfc; white-space: nowrap;
+}
+.staff-table tbody td {
+  padding: 10px 16px; font-size: 13.5px; border-bottom: 1px solid #f5f5f5;
+  vertical-align: middle; color: var(--text);
+}
+.staff-table tbody tr:hover td { background: #fafbff; }
+.staff-table tbody tr:last-child td { border-bottom: none; }
+
+/* ── 姓名 + 头像 ── */
+.name-cell { display: flex; align-items: center; gap: 10px; }
+.avatar-circle {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.name-text { font-weight: 600; font-size: 13.5px; }
+
+/* ── 岗位胶囊标签（不同颜色） ── */
+.role-tag {
+  display: inline-block; padding: 3px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.rt-app      { background: #fef3c7; color: #b45309; }     /* APP 金 */
+.rt-godzilla { background: #dbeafe; color: #1d4ed8; }      /* 哥斯拉 蓝 */
+.rt-mirror   { background: #dcfce7; color: #15803d; }      /* 魔镜 绿 */
+.rt-xray     { background: #f3e8ff; color: #7e22ce; }      /* Xray 紫 */
+.rt-charge   { background: #fee2e2; color: #dc2626; }      /* 充电移交 红 */
+.rt-c-photo  { background: #ffedd5; color: #c2410c; }      /* C端拍照 浅橙 */
+.rt-b-photo  { background: #fed7aa; color: #9a3412; }      /* B端拍照 深橙 */
+.rt-defect   { background: #fef3c7; color: #b45309; }      /* 瑕疵图 金 */
+.rt-privacy  { background: #cffafe; color: #0e7490; }      /* 隐私 青 */
+.rt-repair   { background: #ccfbf1; color: #0f766e; }      /* 信息维修 蓝绿 */
+
+/* ── 动画 ── */
+@keyframes fadeInUp { from {opacity:0;transform:translateY(10px)} to {opacity:1;transform:translateY(0)} }
+.anim { animation: fadeInUp .35s ease-out both; }
+</style>
+
+<!-- 页面工具栏：标题 + 刷新 + 搜索 -->
+<div class="page-toolbar">
+  <div class="toolbar-left"><h2>人员管理</h2></div>
+  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <button class="btn-refresh" id="refreshStaffBtn" onclick="refreshStaff()" title="从飞书云文档同步最新人员">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+      刷新
+    </button>
+    <input type="text" id="searchBox" class="search-box" placeholder="搜索工号、姓名、岗位..." oninput="filterStaff()">
+  </div>
+</div>
+
+<!-- 7 张分类统计卡片（可点击筛选） -->
+<div class="category-grid anim">
+  {% for cat_name, cat_count in category_stats %}
+  <div class="cat-card {{ 'cat-app' if loop.index==1 else 'cat-godzilla' if loop.index==2 else 'cat-mirror' if loop.index==3 else 'cat-xray' if loop.index==4 else 'cat-charge' if loop.index==5 else 'cat-photo' if loop.index==6 else 'cat-privacy' }}"
+       data-category="{{ cat_name }}" onclick="filterByCategory('{{ cat_name }}', this)">
+    <div class="cat-label">{{ cat_name }}</div>
+    <div class="cat-value">{{ cat_count }}</div>
+    <div class="cat-unit">人</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- 筛选标签栏 -->
+<div class="filter-bar anim" style="animation-delay:.05s">
+  <span class="filter-pill active" data-filter="all" onclick="setFilter('all', this)">全部 ({{ staff_count }})</span>
+  {% for cat_name, _ in category_stats %}
+  <span class="filter-pill" data-filter="{{ cat_name }}" onclick="setFilter('{{ cat_name }}', this)">{{ cat_name }}</span>
+  {% endfor %}
+</div>
+
+<!-- 员工列表表格 -->
+<div class="staff-section anim" style="animation-delay:.1s">
+  <div class="section-header">
+    <h4>👥 员工列表</h4>
+    <span style="font-size:12px;color:#aaa" id="staffCountLabel">共 {{ staff_count }} 人</span>
+  </div>
+  <div class="staff-table-wrap">
+  <table class="staff-table" id="staffTable">
+    <thead>
+      <tr>
+        <th>工号</th>
+        <th>姓名</th>
+        <th>岗位标签</th>
+        <th>岗位组别</th>
+        <th>员工类型</th>
+        <th>入职日期</th>
+        <th>C2</th><th>C3</th><th>C4</th><th>C5</th>
+      </tr>
+    </thead>
+    <tbody id="staffTbody">
+    {% if staff_list %}
+    {% for s in staff_list %}
+    <tr data-group="{{ s.get('dept_group','') }}"
+        data-tag="{{ s.get('position_tag','') }}"
+        data-name="{{ s.get('name','') }} {{ s.get('employee_no','') }}">
+      <!-- 工号 -->
+      <td style="color:var(--text2);font-size:12.5px">{{ s.get('employee_no', '-') }}</td>
+      <!-- 姓名 + 头像 -->
+      <td>
+        <div class="name-cell">
+          <div class="avatar-circle" style="background:{{ avatar_color_map.get(s.get('position_tag',''), '#888') }}">
+            {{ s.get('name','?')[0] }}
+          </div>
+          <span class="name-text">{{ s.get('name', '-') }}</span>
+        </div>
+      </td>
+      <!-- 岗位标签（胶囊） -->
+      <td><span class="role-tag {{ role_class_map.get(s.get('position_tag',''), '') }}">{{ s.get('position_tag','-') }}</span></td>
+      <!-- 岗位组别 -->
+      <td>{{ s.get('dept_group','-') }}</td>
+      <!-- 员工类型 -->
+      <td>{{ s.get('employee_type','-') }}</td>
+      <!-- 入职日期 -->
+      <td style="color:var(--text2);font-size:12.5px">{{ s.get('hire_date','-') }}</td>
+      <!-- C2-C5 -->
+      <td style="color:var(--text2);font-size:12.5px">{{ s.get('c2','-') }}</td>
+      <td style="color:var(--text2);font-size:12.5px">{{ s.get('c3','-') }}</td>
+      <td style="color:var(--text2);font-size:12.5px">{{ s.get('c4','-') }}</td>
+      <td style="color:var(--text2);font-size:12.5px">{{ s.get('c5','-') }}</td>
+    </tr>
+    {% endfor %}
+    {% else %}
+    <tr><td colspan="10" style="padding:50px;text-align:center;color:#bbb;font-size:14px">暂无员工数据，请从飞书云文档同步</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── 头像颜色映射（按岗位） ──
+const AVATAR_COLORS = {
+  'APP': '#1565c0', '哥斯拉': '#f57f17', '魔镜': '#2e7d32',
+  'xray': '#6a1b9a', 'Xray': '#6a1b9a',
+  '充电移交': '#ad1457',
+  'C端拍照': '#c2185b', 'B端拍照': '#880e4f', '瑕疵图': '#e65100',
+  '隐私': '#b71c1c', '信息维修': '#ad1457',
+};
+function _getAvatarColor(tag) {
+  return AVATAR_COLORS[tag] || '#888';
+}
+
+// ── 当前筛选状态 ──
+let currentFilter = 'all';
+let currentSearch = '';
+
+// ── 点击分类卡片筛选（高亮卡片 + 同步标签） ──
+function filterByCategory(cat, el) {
+  // 切换卡片激活态：先清除所有
+  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+
+  // 同步下方筛选标签
+  const targetPill = document.querySelector(`.filter-pill[data-filter="${cat}"]`);
+  setFilter(cat, targetPill || document.querySelector('.filter-pill[data-filter="all"]'));
+
+  // 滚动到表格区域
+  document.querySelector('.staff-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── 切换筛选标签 ──
+function setFilter(filter, pillEl) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  if (pillEl) pillEl.classList.add('active');
+
+  // 同步上方卡片激活态
+  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active'));
+  const targetCard = document.querySelector(`.cat-card[data-category="${filter}"]`);
+  if (targetCard && filter !== 'all') targetCard.classList.add('active');
+
+  applyFilters();
+}
+
+// ── 搜索输入 ──
+function filterStaff() {
+  currentSearch = document.getElementById('searchBox').value.toLowerCase().trim();
+  applyFilters();
+}
+
+// ── 应用筛选逻辑 ──
+function applyFilters() {
+  const rows = document.querySelectorAll('#staffTbody tr');
+  let visibleCount = 0;
+
+  const PHOTO_GROUPS = ['B端拍照', 'C端拍照', '瑕疵图'];
+  const PRIVACY_GROUPS = ['隐私/信息维修'];
+
+  rows.forEach(row => {
+    const group = row.dataset.group || '';
+    const tag = row.dataset.tag || '';
+    const nameText = row.dataset.name || '';
+
+    // 搜索匹配
+    let matchSearch = true;
+    if (currentSearch) {
+      matchSearch = nameText.toLowerCase().includes(currentSearch);
+    }
+
+    // 分类匹配
+    let matchCategory = (currentFilter === 'all');
+    if (!matchCategory && currentFilter === '拍照') {
+      matchCategory = PHOTO_GROUPS.includes(group) || ['C端拍照','B端拍照','瑕疵图'].includes(tag);
+    } else if (!matchCategory && currentFilter === '隐私/信息维修') {
+      matchCategory = PRIVACY_GROUPS.includes(group) || tag === '隐私' || tag === '信息维修';
+    } else if (!matchCategory) {
+      matchCategory = (group === currentFilter) ||
+                     (tag === currentFilter) ||
+                     (currentFilter === 'Xray' && (tag === 'xray' || tag === 'Xray'));
+    }
+
+    row.style.display = (matchSearch && matchCategory) ? '' : 'none';
+    if (row.style.display !== 'none') visibleCount++;
+  });
+
+  document.getElementById('staffCountLabel').textContent = `共 ${visibleCount} 人`;
+}
+
+// ── 刷新：从飞书云文档实时同步 ──
+const CAT_CLASS = ['cat-app', 'cat-godzilla', 'cat-mirror', 'cat-xray', 'cat-charge', 'cat-photo', 'cat-privacy'];
+
+async function refreshStaff() {
+  const btn = document.getElementById('refreshStaffBtn');
+  btn.classList.add('spin');
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/staff/refresh', { method: 'POST' });
+    const data = await resp.json();
+
+    if (data.ok) {
+      // 更新分类卡片数值
+      if (data.category_stats) {
+        const cards = document.querySelectorAll('.cat-card');
+        cards.forEach((card, i) => {
+          if (data.category_stats[i]) {
+            card.querySelector('.cat-value').textContent = data.category_stats[i].count;
+          }
+        });
+      }
+
+      // 刷新页面以加载最新人员列表（最可靠的方式）
+      setTimeout(() => location.reload(), 300);
+    } else {
+      alert('同步失败: ' + (data.error || '未知错误'));
+    }
+  } catch(e) {
+    alert('请求失败: ' + e.message);
+  } finally {
+    btn.classList.remove('spin');
+    btn.disabled = false;
+  }
+}
+
+// ── 页面加载后初始化 ──
+document.addEventListener('DOMContentLoaded', () => {
+  applyFilters();
+});
+</script>
+{% endblock %}

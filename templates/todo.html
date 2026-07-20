@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}待办事项 - 效率看板{% endblock %}
+{% block page_title %}待办事项{% endblock %}
+{% block content %}
+<style>
+.todo-stats { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+.todo-stat {
+  flex: 1; min-width: 160px;
+  border-radius: 12px; padding: 18px 22px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  border: 2px solid transparent;
+  cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s;
+  display: flex; align-items: center; gap: 14px;
+}
+.todo-stat:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.09); }
+.todo-stat.active { border-color: #93c5fd; box-shadow: 0 0 0 4px rgba(147,197,253,.15), 0 4px 14px rgba(59,130,246,.12); }
+.ts-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.todo-st-total { background: #eff6ff; border-color: #dbeafe; }
+.todo-st-total .ts-icon { background: linear-gradient(135deg,#dbeafe,#bfdbfe); }
+.todo-st-total .ts-value { color: #3b82f6; }
+.todo-st-done { background: #f0fdf4; border-color: #dcfce7; }
+.todo-st-done .ts-icon { background: linear-gradient(135deg,#dcfce7,#bbf7d0); }
+.todo-st-done .ts-value { color: #16a34a; }
+.todo-st-pending { background: #fff7ed; border-color: #ffedd5; }
+.todo-st-pending .ts-icon { background: linear-gradient(135deg,#ffedd5,#fed7aa); }
+.todo-st-pending .ts-value { color: #ea580c; }
+.ts-body { flex: 1; min-width: 0; }
+.todo-stat .ts-label { font-size: 13px; color: var(--text2); margin-bottom: 6px; font-weight: 600; }
+.todo-stat .ts-value { font-size: 28px; font-weight: 700; line-height: 1.1; }
+
+.todo-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+.todo-toolbar .tb-left { display: flex; align-items: center; gap: 12px; }
+.sync-status { font-size: 12px; color: var(--text2); }
+.sync-status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 5px; vertical-align: middle; }
+.sync-status.err .dot { background: var(--red); }
+.btn-sync { background: #eef4ff; color: #4a59d6; border: 1px solid #c7d2fe; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .12s; }
+.btn-sync:hover { background: #e0e9ff; }
+.btn-sync:disabled { opacity: .6; cursor: default; }
+.btn-add { background: linear-gradient(135deg, #ffba42, #ff9a00); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform .12s, box-shadow .12s; box-shadow: 0 2px 6px rgba(255,154,0,.3); }
+.btn-add:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,154,0,.4); }
+
+.todo-form-card { background: var(--card); border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 20px; display: none; }
+.todo-form-card.open { display: block; animation: fadeInUp .25s ease-out; }
+.todo-form-card h4 { font-size: 15px; margin-bottom: 16px; font-weight: 700; }
+.form-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 14px; }
+.form-field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+.form-field input, .form-field select { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fafbfc; color: var(--text); }
+.form-field input:focus, .form-field select:focus { outline: none; border-color: var(--accent); background: #fff; }
+.form-actions { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+.btn-submit { background: var(--accent); color: #fff; border: none; padding: 9px 22px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-submit:hover { background: #4a59d6; }
+.btn-cancel { background: #f0f1f5; color: var(--text2); border: none; padding: 9px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+
+.todo-list { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); overflow: hidden; }
+.todo-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid var(--border); transition: background .12s; }
+.todo-item:last-child { border-bottom: none; }
+.todo-item:hover { background: #f8f9ff; }
+.todo-item .check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid #d0d3da; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; transition: all .12s; }
+.todo-item.done .check { background: var(--green); border-color: var(--green); }
+.todo-item.done .td-content { text-decoration: line-through; color: var(--text2); }
+.todo-item .td-main { flex: 1; min-width: 0; }
+.todo-item .td-content { font-size: 15px; font-weight: 600; word-break: break-all; }
+.todo-item .td-meta { font-size: 12px; color: var(--text2); margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.todo-item .td-meta span b { color: var(--text); font-weight: 600; }
+.pri-tag { padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.pri-高 { background: #ffebee; color: #c62828; }
+.pri-中 { background: #fff3e0; color: #e65100; }
+.pri-低 { background: #e8f5e9; color: #2e7d32; }
+.src-badge { padding: 1px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; font-style: normal; }
+.src-badge.feishu { background: #e8f5e9; color: #2e7d32; }
+.src-badge.local { background: #eef4ff; color: #4a59d6; }
+.td-link { color: #4a59d6; text-decoration: none; font-size: 12px; }
+.td-link:hover { text-decoration: underline; }
+.td-del { background: none; border: none; color: #c4c7d0; cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 6px; transition: all .12s; }
+.td-del:hover { background: #ffebee; color: var(--red); }
+.empty { text-align: center; padding: 50px 20px; color: var(--text2); }
+.empty-icon { font-size: 40px; display: block; margin-bottom: 10px; opacity: .5; }
+</style>
+
+<div class="todo-stats">
+  <div class="todo-stat todo-st-total active" data-filter="all">
+    <div class="ts-icon">📋</div><div class="ts-body"><div class="ts-label">全部事项</div><div class="ts-value" id="statTotal">{{ total }}</div></div>
+  </div>
+  <div class="todo-stat todo-st-done" data-filter="done">
+    <div class="ts-icon">✅</div><div class="ts-body"><div class="ts-label">已完成</div><div class="ts-value" id="statDone">{{ done }}</div></div>
+  </div>
+  <div class="todo-stat todo-st-pending" data-filter="pending">
+    <div class="ts-icon">⏳</div><div class="ts-body"><div class="ts-label">待处理</div><div class="ts-value" id="statPending">{{ pending }}</div></div>
+  </div>
+</div>
+
+<div class="todo-toolbar">
+  <div class="tb-left">
+    <button class="btn-sync" id="syncBtn">🔄 刷新</button>
+    <span class="sync-status" id="syncStatus"><span class="dot"></span><span id="syncText">就绪</span></span>
+  </div>
+  <button class="btn-add" id="addBtn">＋ 添加事项</button>
+</div>
+
+<div class="todo-form-card" id="formCard">
+  <h4>新建待办事项（仅保存在本应用）</h4>
+  <div class="form-grid">
+    <div class="form-field">
+      <label>事项内容 *</label>
+      <input type="text" id="f-content" placeholder="例如：跟进拍照魔方数据源接入" maxlength="200">
+    </div>
+    <div class="form-field">
+      <label>负责人</label>
+      <input type="text" id="f-owner" placeholder="选填" maxlength="20">
+    </div>
+    <div class="form-field">
+      <label>截止日期</label>
+      <input type="date" id="f-due">
+    </div>
+    <div class="form-field">
+      <label>优先级</label>
+      <select id="f-priority">
+        <option value="高">高</option>
+        <option value="中" selected>中</option>
+        <option value="低">低</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-actions">
+    <button class="btn-cancel" id="cancelBtn">取消</button>
+    <button class="btn-submit" id="submitBtn">添加</button>
+  </div>
+</div>
+
+<div class="todo-list" id="todoList"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const FEISHU_URL = "{{ feishu_url }}";
+const FEISHU_PRIO_COLOR = {
+  '重要紧急': '#e53935', '紧急不重要': '#fb8c00',
+  '重要不紧急': '#1e88e5', '不重要不紧急': '#9e9e9e'
+};
+
+const $ = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+const todoList = $('#todoList');
+
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function priTag(p, source){
+  if(source==='feishu'){
+    const c = FEISHU_PRIO_COLOR[p] || '#9e9e9e';
+    return `<span class="pri-tag" style="background:${c}22;color:${c}">${esc(p)}</span>`;
+  }
+  return `<span class="pri-tag pri-${esc(p)}">${esc(p)}</span>`;
+}
+
+let allItems = [];
+let curFilter = 'all';
+
+function renderItems(items){
+  allItems = items;
+  // 统计（基于全部数据）
+  const total = items.length, doneCount = items.filter(i=>i.done).length, pendingCount = total - doneCount;
+  $('#statTotal').textContent = total;
+  $('#statDone').textContent = doneCount;
+  $('#statPending').textContent = pendingCount;
+
+  // 按当前筛选过滤
+  let shown = items;
+  if(curFilter === 'done') shown = items.filter(i=>i.done);
+  else if(curFilter === 'pending') shown = items.filter(i=>!i.done);
+
+  if(!shown.length){
+    const hint = curFilter==='done'?'暂无已完成事项': curFilter==='pending'?'暂无待处理事项':'暂无待办';
+    todoList.innerHTML = `<div class="empty"><span class="empty-icon">☐</span><h3>${hint}</h3><p>点击右上角「添加事项」创建，或刷新导入任务</p></div>`;
+    return;
+  }
+  shown.sort((a,b)=> (a.done===b.done)?0:(a.done?1:-1));
+  todoList.innerHTML = shown.map(it=>{
+    const src = it.source==='feishu' ? 'feishu' : 'local';
+    const badge = src==='feishu'
+      ? `<span class="src-badge feishu">飞书</span>`
+      : `<span class="src-badge local">本地</span>`;
+    let meta = '';
+    if(src==='feishu'){
+      const exec = (it.executor||[]).join('、');
+      meta += `<span>${badge}</span>`;
+      meta += `<span>执行人：<b>${esc(exec||'-')}</b></span>`;
+      if(it.deadline) meta += `<span>截止：<b>${esc(it.deadline)}</b></span>`;
+      meta += priTag(it.priority, 'feishu');
+      if(it.progress) meta += `<span>进度：${esc(it.progress)}</span>`;
+    } else {
+      meta += `<span>${badge}</span>`;
+      meta += priTag(it.priority, 'local');
+      if(it.owner) meta += `<span>负责人：<b>${esc(it.owner)}</b></span>`;
+      if(it.due) meta += `<span>截止：<b>${esc(it.due)}</b></span>`;
+      if(it.created_at) meta += `<span>创建：${esc(it.created_at)}</span>`;
+    }
+    const content = src==='feishu' ? (it.name||'(未命名)') : (it.content||'');
+    // 本地项可删除；飞书项不可（避免误删云文档数据）
+    const delBtn = src==='local' ? `<button class="td-del" data-act="delete" title="删除">✕</button>` : '';
+    return `<div class="todo-item ${it.done?'done':''}" data-id="${esc(it.id)}" data-source="${src}">
+      <div class="check" data-act="toggle">${it.done?'✓':''}</div>
+      <div class="td-main">
+        <div class="td-content">${esc(content)}</div>
+        <div class="td-meta">${meta}</div>
+      </div>
+      ${delBtn}
+    </div>`;
+  }).join('');
+}
+
+async function refresh(){
+  try{
+    const r = await fetch('/api/todo/list');
+    const d = await r.json();
+    renderItems(d.items||[]);
+  }catch(e){ console.error(e); }
+}
+
+// 通道卡片筛选
+$$('.todo-stat').forEach(card => {
+  card.addEventListener('click', () => {
+    $$('.todo-stat').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    curFilter = card.dataset.filter || 'all';
+    renderItems(allItems);
+  });
+});
+
+// 刷新云文档
+const syncBtn = $('#syncBtn');
+const syncStatus = $('#syncStatus');
+const syncText = $('#syncText');
+syncBtn.onclick = async ()=>{
+  syncBtn.disabled = true; syncBtn.textContent = '🔄 同步中…';
+  syncStatus.classList.remove('err');
+  try{
+    const r = await fetch('/api/todo/sync', {method:'POST'});
+    const d = await r.json();
+    if(d.ok){
+      renderItems(d.items||[]);
+      syncText.textContent = '已同步 ' + (d.synced_at||'');
+    } else {
+      syncStatus.classList.add('err');
+      syncText.textContent = '同步失败：' + (d.error||'未知错误');
+    }
+  }catch(e){
+    syncStatus.classList.add('err');
+    syncText.textContent = '同步失败：网络错误';
+  }
+  syncBtn.disabled = false; syncBtn.textContent = '🔄 刷新';
+};
+
+// 添加表单
+const formCard = $('#formCard');
+$('#addBtn').onclick = ()=> formCard.classList.toggle('open');
+$('#cancelBtn').onclick = ()=>{ formCard.classList.remove('open'); $('#f-content').value=''; };
+$('#submitBtn').onclick = async ()=>{
+  const content = $('#f-content').value.trim();
+  if(!content){ alert('请填写事项内容'); return; }
+  const payload = { content, owner: $('#f-owner').value.trim(), due: $('#f-due').value, priority: $('#f-priority').value };
+  const btn = $('#submitBtn'); btn.disabled = true; btn.textContent='添加中…';
+  try{
+    const r = await fetch('/api/todo/add', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const d = await r.json();
+    if(d.ok){ formCard.classList.remove('open'); $('#f-content').value=''; $('#f-owner').value=''; $('#f-due').value=''; await refresh(); }
+    else { alert(d.error || '添加失败'); }
+  }catch(e){ alert('网络错误'); }
+  finally{ btn.disabled=false; btn.textContent='添加'; }
+};
+
+// 列表事件委托
+todoList.addEventListener('click', async (e)=>{
+  const card = e.target.closest('.todo-item');
+  if(!card) return;
+  const id = card.dataset.id;
+  const act = e.target.dataset.act;
+  if(act==='toggle'){
+    await fetch('/api/todo/toggle', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id})});
+    await refresh();
+  } else if(act==='delete'){
+    if(!confirm('确认删除该本地事项？')) return;
+    await fetch('/api/todo/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id})});
+    await refresh();
+  }
+});
+
+// 首次加载
+refresh();
+</script>
+{% endblock %}

@@ -1,0 +1,770 @@
+{% extends "base.html" %}
+{% block title %}自动化效率监控 - 效率看板{% endblock %}
+{% block page_title %}{% endblock %}
+{% block content %}
+{% set k = kpi or {} %}
+{% set ch = channels or {} %}
+{% set hl = hourly_data or [] %}
+{% set hrates = hourly_rates or {} %}
+{% set htotals = hourly_totals or {} %}
+
+<style>
+/* ── 自动化效率监控专用样式 ── */
+.auto-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.auto-toolbar h2 { font-size: 22px; font-weight: 700; color: var(--text); }
+.btn-refresh {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--text); font-size: 13px;
+  cursor: pointer; transition: all .15s;
+}
+.btn-refresh:hover { background: #f5f6fa; border-color: var(--accent); color: var(--accent); }
+
+/* ── 6卡片网格 (1行6列) ── */
+.auto-kpi-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;
+  margin-bottom: 20px;
+}
+.auto-kpi-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  position: relative; overflow: hidden;
+  transition: transform .15s, box-shadow .15s;
+}
+.auto-kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.auto-kpi-label { font-size: 14px; color: var(--text); font-weight: 700; margin-bottom: 10px; }
+.auto-kpi-value { font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 4px; }
+.auto-kpi-sub { font-size: 11px; color: var(--text3); }
+.auto-kpi-icon {
+  position: absolute; right: 12px; top: 12px;
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; opacity: .85;
+}
+.auto-kpi-blue { background: linear-gradient(135deg, #e8f4fd, #f0f8ff); }
+.auto-kpi-blue .auto-kpi-icon { background: #dbeafe; color: #2563eb; }
+.auto-kpi-green { background: linear-gradient(135deg, #e8f8ee, #f0fff4); }
+.auto-kpi-green .auto-kpi-icon { background: #dcfce7; color: #16a34a; }
+.auto-kpi-orange { background: linear-gradient(135deg, #fef6e8, #fffbeb); }
+.auto-kpi-orange .auto-kpi-icon { background: #fed7aa; color: #ea580c; }
+.auto-kpi-purple { background: linear-gradient(135deg, #f3e8fd, #faf5ff); }
+.auto-kpi-purple .auto-kpi-icon { background: #ede9fe; color: #9333ea; }
+.auto-kpi-cyan { background: linear-gradient(135deg, #e8fdf9, #f0fdfa); }
+.auto-kpi-cyan .auto-kpi-icon { background: #ccfbf1; color: #0d9488; }
+.auto-kpi-red { background: linear-gradient(135deg, #fee2e2, #fef2f2); }
+.auto-kpi-red .auto-kpi-icon { background: #fecaca; color: #dc2626; }
+
+.value-highlight-green { color: #16a34a; }
+.value-highlight-red { color: #dc2626; }
+
+/* ── 通道Tab卡片区（4个横向一行排列） ── */
+.channel-tabs {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  margin-bottom: 24px;
+}
+.channel-tab {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px 18px; box-shadow: var(--shadow);
+  border: 2px solid transparent;
+  cursor: pointer; transition: all .15s;
+}
+.channel-tab:hover { border-color: var(--accent); transform: translateY(-1px); }
+.channel-tab.active {
+  border-color: #3b82f6; background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+  box-shadow: 0 4px 12px rgba(59,130,246,.15);
+}
+/* 各通道淡色区分 */
+.channel-tab.ch-all.active     { border-color: #94a3b8; background: linear-gradient(135deg, #f8fafc, #f1f5f9); box-shadow: 0 4px 12px rgba(148,163,184,.15); }
+.channel-tab.ch-godzilla.active { border-color: #22c55e; background: linear-gradient(135deg, #f0fdf4, #ecfdf5); box-shadow: 0 4px 12px rgba(34,197,94,.15); }
+.channel-tab.ch-mirror.active   { border-color: #a855f7; background: linear-gradient(135deg, #faf5ff, #f5f3ff); box-shadow: 0 4px 12px rgba(168,85,247,.15); }
+.channel-tab.ch-xray.active     { border-color: #06b6d4; background: linear-gradient(135deg, #ecfeff, #f0fdfa); box-shadow: 0 4px 12px rgba(6,182,212,.15); }
+/* 非选中态也带极淡底色 */
+.channel-tab.ch-godzilla { background: linear-gradient(135deg, #f6fef9, #f0fdf4); }
+.channel-tab.ch-mirror   { background: linear-gradient(135deg, #fdfaff, #faf5ff); }
+.channel-tab.ch-xray     { background: linear-gradient(135deg, #f5feff, #ecfeff); }
+.channel-tab-header {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 12px; font-size: 16px; font-weight: 700;
+  color: var(--text);
+}
+.channel-tab-stats {
+  display: flex; gap: 0; /* 均匀分布：由子元素flex:1控制 */
+}
+.channel-stat-item { 
+  flex: 1; text-align: center; 
+}
+.channel-stat-label { color: var(--text2); font-size: 12px; margin-bottom: 3px; }
+.channel-stat-value { font-weight: 800; font-size: 23px; color: var(--text); }
+
+/* ── 人员表格（与APP页一致风格） ── */
+.auto-table-wrap {
+  background: var(--card); border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: 20px; margin-bottom: 24px;
+}
+.auto-table {
+  width: 100%; table-layout: fixed;
+  border-collapse: collapse;
+}
+.auto-table th, .auto-table td {
+  padding: 10px 6px; font-size: 14px;
+  text-align: center; vertical-align: middle;
+  overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.auto-table th { font-weight: 700; background: #fafbfc; color: var(--text2); font-size: 14px; }
+.auto-table td { font-weight: 600; color: var(--text); font-size: 13px; }
+.auto-table tr:hover td { background: #f8f9ff; }
+
+/* 设备编号：每行一个 */
+.device-codes-cell {
+  font-size: 13px; color: var(--text2);
+  line-height: 1.6; vertical-align: middle;
+}
+.device-codes-cell span { white-space: nowrap; }
+
+.rank-medal {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-size: 13px; font-weight: 700; color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
+}
+.rank-gold { background: linear-gradient(135deg, #fcd34d, #f59e0b); }
+.rank-silver { background: linear-gradient(135deg, #e2e8f0, #94a3b8); }
+.rank-bronze { background: linear-gradient(135deg, #f0b486, #cd7c32); }
+
+/* 胶囊标签 */
+.tag-fulltime { background: #dbeafe; color: #1d4ed8; padding: 3px 11px; border-radius: 10px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-parttime { background: #fef3c7; color: #b45309; padding: 3px 11px; border-radius: 10px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-godzilla { background: #dcfce7; color: #15803d; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-mirror { background: #ede9fe; color: #7c3aed; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+.tag-xray { background: #fef3c7; color: #b45309; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; }
+
+/* 效率达成列 */
+.achieve-cell {
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; width: 100%; min-width: 0;
+}
+.progress-wrap { width: 48px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; flex: 0 0 auto; }
+.progress-bar { height: 100%; border-radius: 3px; }
+.progress-high { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.progress-mid { background: linear-gradient(90deg, #ea580c, #f97316); }
+.progress-low { background: linear-gradient(90deg, #eab308, #facc15); }
+.progress-crit { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.progress-pass { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.progress-fail { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.achieve-pct { font-size: 13px; font-weight: 700; white-space: nowrap; flex: 0 0 auto; }
+.txt-pass { color: #16a34a; } .txt-fail { color: #dc2626; }
+.badge-pass, .badge-fail {
+  padding: 2px 7px; border-radius: 8px;
+  font-size: 11px; font-weight: 600; white-space: nowrap; flex: 0 0 auto;
+}
+.badge-pass { background: #dcfce7; color: #16a34a; }
+.badge-fail { background: #fee2e2; color: #dc2626; }
+
+/* ── 时段表格 ── */
+.hourly-table th.bg-orange { background: #fff7ed; color: #c2410c; font-size: 13px; }
+.hourly-table th.bg-purple { background: #faf5ff; color: #7c3aed; font-size: 13px; }
+.hourly-table td.text-center { text-align: center; font-size: 13px; }
+.hourly-table td.hourly-num { text-align: center; font-weight: 600; font-size: 14px; }
+.hourly-table tfoot td {
+  background: #fefce8; border-top: 2px solid var(--border);
+  font-weight: 800; font-size: 14px; color: #854d0e;
+}
+.hourly-table tfoot .total-num { color: #b45309; font-weight: 900; font-size: 15px; }
+
+/* 区块标题 */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-title { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.section-count { font-size: 14px; color: var(--text2); }
+
+/* 空状态 */
+.empty-state { text-align: center; padding: 50px 20px; color: var(--text2); }
+.empty-state h3 { font-size: 16px; color: var(--text); margin-bottom: 4px; }
+.empty-state p { font-size: 13px; }
+
+@media (max-width: 1200px) { .auto-kpi-grid { grid-template-columns: repeat(2, 1fr); } .channel-tabs { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px) { .channel-tabs { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px) { .auto-kpi-grid { grid-template-columns: 1fr; } .channel-tabs { grid-template-columns: 1fr; } }
+</style>
+
+<!-- 工具栏 -->
+<div class="auto-toolbar">
+  <div><h2>自动化效率监控</h2></div>
+  <button class="btn-refresh" onclick="refreshAuto(this)">
+    <span>↻</span> 刷新数据
+  </button>
+</div>
+
+<!-- 6个KPI卡片（随选中通道动态切换） -->
+<div class="auto-kpi-grid anim delay-1">
+  <div class="auto-kpi-card auto-kpi-blue" id="kpiStaffCount">
+    <div class="auto-kpi-label">总人数</div>
+    <div class="auto-kpi-value">{{ k.staff_count or 0 }}</div>
+    <div class="auto-kpi-sub">人</div>
+    <div class="auto-kpi-icon">👥</div>
+  </div>
+  <div class="auto-kpi-card auto-kpi-orange" id="kpiTotalProducts">
+    <div class="auto-kpi-label">总处理量</div>
+    <div class="auto-kpi-value">{{ fmt(k.total_products or 0) }}</div>
+    <div class="auto-kpi-sub">台</div>
+    <div class="auto-kpi-icon">📦</div>
+  </div>
+  <div class="auto-kpi-card auto-kpi-cyan" id="kpiTotalHours">
+    <div class="auto-kpi-label">总工时</div>
+    <div class="auto-kpi-value">{{ k.total_hours or 0 }}</div>
+    <div class="auto-kpi-sub">小时</div>
+    <div class="auto-kpi-icon">🕐</div>
+  </div>
+  <div class="auto-kpi-card auto-kpi-purple" id="kpiAvgUpph">
+    <div class="auto-kpi-label">平均UPPH</div>
+    <div class="auto-kpi-value">{{ k.avg_upph or 0 }}</div>
+    <div class="auto-kpi-sub">台/小时</div>
+    <div class="auto-kpi-icon">📊</div>
+  </div>
+  <div class="auto-kpi-card auto-kpi-green" id="kpiPassRate">
+    <div class="auto-kpi-label">达标率</div>
+    <div class="auto-kpi-value value-highlight-green"><span id="kpiPassRateVal">{{ k.pass_rate or 0 }}</span><span style="font-size:18px;color:var(--text2)">%</span></div>
+    <div class="auto-kpi-sub"><span id="kpiQualifiedSub">达标 {{ k.qualified_count or 0 }} / 未达标 {{ k.unqualified_count or 0 }}</span></div>
+    <div class="auto-kpi-icon">✅</div>
+  </div>
+  <div class="auto-kpi-card auto-kpi-red" id="kpiUnqualified">
+    <div class="auto-kpi-label">未达标人数</div>
+    <div class="auto-kpi-value value-highlight-red"><span id="kpiUnqualifiedVal">{{ k.unqualified_count or 0 }}</span></div>
+    <div class="auto-kpi-sub">人</div>
+    <div class="auto-kpi-icon">⚠️</div>
+  </div>
+</div>
+
+<!-- 通道Tab卡片（点击切换） -->
+<div class="channel-tabs anim delay-2" id="channelTabs">
+  <!-- 全部通道 -->
+  <div class="channel-tab ch-all active" data-channel="all" onclick="switchChannel('all', this)">
+    <div class="channel-tab-header">全部通道</div>
+    <div class="channel-tab-stats">
+      <div class="channel-stat-item"><div class="channel-stat-label">总处理量</div><div class="channel-stat-value">{{ fmt(ch.all.total_products or 0) }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">人数</div><div class="channel-stat-value">{{ ch.all.count or 0 }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">平均UPPH</div><div class="channel-stat-value">{{ ch.all.avg_upph or 0 }}</div></div>
+    </div>
+  </div>
+  <!-- 哥斯拉 -->
+  <div class="channel-tab ch-godzilla" data-channel="godzilla" onclick="switchChannel('godzilla', this)">
+    <div class="channel-tab-header">🦖 哥斯拉</div>
+    <div class="channel-tab-stats">
+      <div class="channel-stat-item"><div class="channel-stat-label">总处理量</div><div class="channel-stat-value">{{ fmt(ch.godzilla.total_products or 0) }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">人数</div><div class="channel-stat-value">{{ ch.godzilla.count or 0 }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">平均UPPH</div><div class="channel-stat-value">{{ ch.godzilla.avg_upph or 0 }}</div></div>
+    </div>
+  </div>
+  <!-- 魔镜 -->
+  <div class="channel-tab ch-mirror" data-channel="mirror" onclick="switchChannel('mirror', this)">
+    <div class="channel-tab-header">🔮 魔镜</div>
+    <div class="channel-tab-stats">
+      <div class="channel-stat-item"><div class="channel-stat-label">总处理量</div><div class="channel-stat-value">{{ fmt(ch.mirror.total_products or 0) }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">人数</div><div class="channel-stat-value">{{ ch.mirror.count or 0 }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">平均UPPH</div><div class="channel-stat-value">{{ ch.mirror.avg_upph or 0 }}</div></div>
+    </div>
+  </div>
+  <!-- X-RAY -->
+  <div class="channel-tab ch-xray" data-channel="xray" onclick="switchChannel('xray', this)">
+    <div class="channel-tab-header">⚡ X-RAY</div>
+    <div class="channel-tab-stats">
+      <div class="channel-stat-item"><div class="channel-stat-label">总处理量</div><div class="channel-stat-value">{{ fmt(ch.xray.total_products or 0) }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">设备数</div><div class="channel-stat-value">{{ ch.xray.count or 0 }}</div></div>
+      <div class="channel-stat-item"><div class="channel-stat-label">平均UPPH</div><div class="channel-stat-value">{{ ch.xray.avg_upph or 0 }}</div></div>
+    </div>
+  </div>
+</div>
+
+{# ─────────── 人员效率明细（哥斯拉/魔镜，人员维度，按通道过滤） ─────────── #}
+<div class="auto-table-wrap anim delay-3" id="staffTableWrap">
+  <div class="section-header">
+    <div class="section-title"><span style="margin-right:4px">📋</span>人员效率明细</div>
+    <div class="section-count" id="staffCountInfo">共 {{ k.staff_count or 0 }} 人</div>
+  </div>
+
+  <table class="auto-table" id="staffTable">
+    <colgroup>
+      <col style="width:7%">   <!-- 排名 -->
+      <col style="width:10%">  <!-- 姓名 -->
+      <col style="width:9%">   <!-- 类型 -->
+      <col style="width:10%">  <!-- 岗位 -->
+      <col style="width:12%">  <!-- 总处理量 -->
+      <col style="width:14%">  <!-- 设备编号 -->
+      <col style="width:11%">  <!-- 效率时长 -->
+      <col style="width:10%">  <!-- UPPH -->
+      <col style="width:17%">  <!-- 效率达成 -->
+    </colgroup>
+    <thead>
+      <tr>
+        <th>排名</th>
+        <th>姓名</th>
+        <th>类型</th>
+        <th>岗位</th>
+        <th>总处理量</th>
+        <th>设备编号</th>
+        <th>效率时长(h)</th>
+        <th>UPPH</th>
+        <th>效率达成</th>
+      </tr>
+    </thead>
+    <tbody id="staffTableBody">
+      {% for s in channels.all.staff %}
+      {% if s.products > 0 %}
+      <tr data-source="{{ s.source }}" data-name="{{ s.name }}" class="staff-row">
+        <td>
+          {% if s.rank == 1 %}<span class="rank-medal rank-gold">1</span>
+          {% elif s.rank == 2 %}<span class="rank-medal rank-silver">2</span>
+          {% elif s.rank == 3 %}<span class="rank-medal rank-bronze">3</span>
+          {% else %}<span style="color:var(--text2);font-weight:600">{{ s.rank }}</span>{% endif %}
+        </td>
+        <td class="font-bold">{{ s.name }}</td>
+        <td><span class="{% if s.employee_type == '兼职' %}tag-parttime{% else %}tag-fulltime{% endif %}">{{ s.employee_type }}</span></td>
+        <td>
+          {% if s.source == 'mirror' %}<span class="tag-mirror">魔镜</span>
+          {% else %}<span class="tag-godzilla">哥斯拉</span>{% endif %}
+        </td>
+        <td style="font-weight:700">{{ fmt(s.products) }}</td>
+        <td class="device-codes-cell">
+          {% if s.device_codes %}
+            {% for code in s.device_codes.replace(',', '，').split('，') %}
+            <span>{{ code.strip() }}</span>{% if not loop.last %}<br>{% endif %}
+            {% endfor %}
+          {% else %}-{% endif %}
+        </td>
+        <td style="font-weight:700">{{ '%.1f'|format(s.hours) if s.hours else '-' }}</td>
+        <td class="font-bold">{{ s.upph }}</td>
+        <td>
+          <div class="achieve-cell">
+            <div class="progress-wrap">
+              <div class="progress-bar {% if s.qualified %}progress-pass{% else %}progress-fail{% endif %}" style="width:{{ [s.rate, 100]|min }}%"></div>
+            </div>
+            <span class="achieve-pct {% if s.qualified %}txt-pass{% else %}txt-fail{% endif %}">{{ '%.1f'|format(s.rate) }}%</span>
+            <span class="{% if s.qualified %}badge-pass{% else %}badge-fail{% endif %}">{{ '达标' if s.qualified else '未达标' }}</span>
+          </div>
+        </td>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ─────────── X光设备效率明细（设备维度：以设备编号为准，无姓名列） ─────────── #}
+<div class="auto-table-wrap anim delay-3" id="xrayStaffWrap" style="display:none">
+  <div class="section-header">
+    <div class="section-title"><span style="margin-right:4px">⚡</span>X光设备效率明细</div>
+    <div class="section-count" id="xrayStaffCountInfo">共 {{ ch.xray.count or 0 }} 台设备</div>
+  </div>
+
+  <table class="auto-table" id="xrayStaffTable">
+    <colgroup>
+      <col style="width:8%">   <!-- 排名 -->
+      <col style="width:18%">  <!-- 设备编号 -->
+      <col style="width:11%">  <!-- 类型 -->
+      <col style="width:11%">  <!-- 岗位 -->
+      <col style="width:14%">  <!-- 总处理量 -->
+      <col style="width:13%">  <!-- 效率时长 -->
+      <col style="width:11%">  <!-- UPPH -->
+      <col style="width:14%">  <!-- 效率达成 -->
+    </colgroup>
+    <thead>
+      <tr>
+        <th>排名</th>
+        <th>设备编号</th>
+        <th>类型</th>
+        <th>岗位</th>
+        <th>总处理量</th>
+        <th>效率时长(h)</th>
+        <th>UPPH</th>
+        <th>效率达成</th>
+      </tr>
+    </thead>
+    <tbody id="xrayStaffTableBody">
+      {% for s in xray_list %}
+      <tr data-source="xray" data-name="{{ s.name }}">
+        <td>
+          {% if loop.index == 1 %}<span class="rank-medal rank-gold">1</span>
+          {% elif loop.index == 2 %}<span class="rank-medal rank-silver">2</span>
+          {% elif loop.index == 3 %}<span class="rank-medal rank-bronze">3</span>
+          {% else %}<span style="color:var(--text2);font-weight:600">{{ loop.index }}</span>{% endif %}
+        </td>
+        <td class="font-bold" style="font-family:Consolas,Menlo,monospace;font-size:12px">{{ s.name }}</td>
+        <td><span class="tag-fulltime">设备</span></td>
+        <td><span class="tag-xray">X-Ray</span></td>
+        <td style="font-weight:700">{{ fmt(s.products) }}</td>
+        <td style="font-weight:700">{{ '%.1f'|format(s.hours) if s.hours else '-' }}</td>
+        <td class="font-bold">{{ s.upph }}</td>
+        <td>
+          <div class="achieve-cell">
+            <div class="progress-wrap">
+              <div class="progress-bar {% if s.qualified %}progress-pass{% else %}progress-fail{% endif %}" style="width:{{ [s.rate, 100]|min }}%"></div>
+            </div>
+            <span class="achieve-pct {% if s.qualified %}txt-pass{% else %}txt-fail{% endif %}">{{ '%.1f'|format(s.rate) }}%</span>
+            <span class="{% if s.qualified %}badge-pass{% else %}badge-fail{% endif %}">{{ '达标' if s.qualified else '未达标' }}</span>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 时段处理量（人员维度：哥斯拉/魔镜） -->
+<div class="auto-table-wrap anim delay-4" id="hourlyWrap">
+  <div class="section-header">
+    <div class="section-title"><span style="margin-right:4px">📊</span>时段处理量</div>
+    <div class="section-count">按小时统计 · 当前：<strong id="currentChannelLabel" style="color:#3b82f6">全部</strong></div>
+  </div>
+  {% if hl %}
+  {# 动态收集所有时段列 #}
+  {% set hour_labels = [] %}
+  {% for h in hl %}
+    {% if h.get('hour_label') not in hour_labels %}{% if hour_labels.append(h['hour_label']) %}{% endif %}{% endif %}
+  {% endfor %}
+  {# 按姓名+通道聚合（同人在不同通道需分行显示） #}
+  {% set person_hours = {} %}
+  {% for h in hl %}
+    {% set _nm = h.get('name','') %}
+    {% set _ch = h.get('channel','-') %}
+    {% set _key = _nm + '|' + _ch %}
+    {% if _key not in person_hours %}{% if person_hours.update({_key:{'name':_nm,'emp_no':h.get('employee_no',''),'cat':h.get('cat','-'),'chn':_ch,'rows':{},'target':h.get('target',52)}}) %}{% endif %}{% endif %}
+    {% if person_hours[_key]['rows'].update({h.get('hour_label',''): h.get('count',0)}) %}{% endif %}
+  {% endfor %}
+
+  <table class="auto-table hourly-table" id="hourlyTable">
+    <colgroup>
+      <col style="width:6%">
+      <col style="width:9%">
+      <col style="width:7%">
+      {% for lbl in hour_labels|sort %}
+      <col style="width:{{ (58 / (hour_labels|length))|round(1) }}%">
+      {% endfor %}
+      <col style="width:8%">
+      <col style="width:6%">
+      <col style="width:9%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>排名</th>
+        <th>姓名</th>
+        <th>工号</th>
+        {% for lbl in hour_labels|sort %}
+        <th class="bg-orange">{{ lbl }}</th>
+        {% endfor %}
+        <th class="bg-orange" style="font-weight:700">合计</th>
+        <th class="bg-purple">目标/件</th>
+        <th>达成率</th>
+      </tr>
+    </thead>
+    <tbody id="hourlyTableBody">
+      {% for key in person_hours.keys()|list %}
+      {% set ph = person_hours[key] %}
+      {% set row_total = ph.rows.values()|sum %}
+      {% set ach_rate = hrates.get(key, 0) or hrates.get(ph.get('name',''), 0) %}
+      {% if row_total > 0 %}
+      <tr data-hname="{{ ph.name }}" data-hchannel="{{ ph.chn }}">
+        <td>
+          {% set hrank = hourly_ranks.get(ph.name + '|' + ph.chn, loop.index) %}
+          {% if hrank == 1 %}<span class="rank-medal rank-gold">1</span>
+          {% elif hrank == 2 %}<span class="rank-medal rank-silver">2</span>
+          {% elif hrank == 3 %}<span class="rank-medal rank-bronze">3</span>
+          {% else %}<span style="color:var(--text2);font-weight:600">{{ hrank }}</span>{% endif %}
+        </td>
+        <td class="font-bold">{{ ph.name }}</td>
+        <td style="font-size:12px;color:var(--text2)">{{ ph.emp_no or '-' }}</td>
+        {% for lbl in hour_labels|sort %}
+        <td class="hourly-num">{{ ph.rows.get(lbl, 0) }}</td>
+        {% endfor %}
+        <td class="font-bold">{{ row_total }}</td>
+        <td>{{ ph.target }}</td>
+        <td>
+          <span style="{% if ach_rate >= 100 %}color:#16a34a;font-weight:600{% elif ach_rate >= 80 %}color:#ea580c;font-weight:600{% else %}color:#dc2626;font-weight:600{% endif %}">{{ '%.2f'|format(ach_rate) }}%</span>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+      {# 单小时运能合计行（按通道动态切换） #}
+      {% set grand_total = htotals.values()|sum %}
+      {% set htbc = hourly_totals_by_channel or {} %}
+      <tr style="background:#fefce8;border-top:2px solid #fbbf24" id="hourlyTotalRow">
+        <td><span style="font-size:14px;color:#854d0e;font-weight:900">∑</span></td>
+        <td style="color:#854d0e;font-weight:800;font-size:14px">单小时运能</td>
+        <td><span style="color:#9ca3af;font-size:13px">-</span></td>
+        {% for lbl in hour_labels|sort %}
+        <td class="total-num" style="font-weight:900;font-size:15px"
+            data-label="{{ lbl }}"
+            data-all="{{ htotals.get(lbl, 0) }}"
+            data-godzilla="{{ (htbc.get('godzilla',{})).get(lbl, 0) }}"
+            data-mirror="{{ (htbc.get('mirror',{})).get(lbl, 0) }}">{{ htotals.get(lbl, 0) }}</td>
+        {% endfor %}
+        <td class="total-num" style="font-weight:900;font-size:15px"
+            data-all="{{ grand_total }}"
+            data-godzilla="{{ (htbc.get('godzilla',{})).values()|sum }}"
+            data-mirror="{{ (htbc.get('mirror',{})).values()|sum }}">{{ grand_total }}</td>
+        <td><span style="color:#7c3aed;font-weight:700;font-size:13px">-</span></td>
+        <td><span style="color:#9ca3af;font-weight:600;font-size:13px">-</span></td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <h3>暂无今日时段数据</h3>
+    <p>当前通道暂无时段记录</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 时段处理量（设备维度：X光，按设备编号聚合） -->
+<div class="auto-table-wrap anim delay-4" id="xrayHourlyWrap" style="display:none">
+  <div class="section-header">
+    <div class="section-title"><span style="margin-right:4px">⚡</span>X光设备时段处理量</div>
+    <div class="section-count">按设备统计 · 当前：<strong style="color:#3b82f6">X-Ray</strong></div>
+  </div>
+  {% if xray_hourly_data %}
+  {% set xhour_labels = [] %}
+  {% for h in xray_hourly_data %}
+    {% if h.get('hour_label') not in xhour_labels %}{% if xhour_labels.append(h['hour_label']) %}{% endif %}{% endif %}
+  {% endfor %}
+  {% set xperson_hours = {} %}
+  {% for h in xray_hourly_data %}
+    {% set _nm = h.get('name','') %}
+    {% set _key = _nm + '|xray' %}
+    {% if _key not in xperson_hours %}{% if xperson_hours.update({_key:{'name':_nm,'rows':{},'target':h.get('target',30)}}) %}{% endif %}{% endif %}
+    {% if xperson_hours[_key]['rows'].update({h.get('hour_label',''): h.get('count',0)}) %}{% endif %}
+  {% endfor %}
+
+  <table class="auto-table hourly-table" id="xrayHourlyTable">
+    <colgroup>
+      <col style="width:6%">
+      <col style="width:16%">
+      {% for lbl in xhour_labels|sort %}
+      <col style="width:{{ (54 / (xhour_labels|length))|round(1) }}%">
+      {% endfor %}
+      <col style="width:8%">
+      <col style="width:8%">
+      <col style="width:10%">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>排名</th>
+        <th>设备编号</th>
+        {% for lbl in xhour_labels|sort %}
+        <th class="bg-orange">{{ lbl }}</th>
+        {% endfor %}
+        <th class="bg-orange" style="font-weight:700">合计</th>
+        <th class="bg-purple">目标/件</th>
+        <th>达成率</th>
+      </tr>
+    </thead>
+    <tbody id="xrayHourlyTableBody">
+      {% for key in xperson_hours.keys()|list %}
+      {% set ph = xperson_hours[key] %}
+      {% set row_total = ph.rows.values()|sum %}
+      {% set ach_rate = xray_hourly_rates.get(key, 0) %}
+      <tr data-hname="{{ ph.name }}" data-hchannel="xray">
+        <td>
+          {% if loop.index == 1 %}<span class="rank-medal rank-gold">1</span>
+          {% elif loop.index == 2 %}<span class="rank-medal rank-silver">2</span>
+          {% elif loop.index == 3 %}<span class="rank-medal rank-bronze">3</span>
+          {% else %}<span style="color:var(--text2);font-weight:600">{{ loop.index }}</span>{% endif %}
+        </td>
+        <td class="font-bold" style="font-family:Consolas,Menlo,monospace;font-size:12px">{{ ph.name }}</td>
+        {% for lbl in xhour_labels|sort %}
+        <td class="hourly-num">{{ ph.rows.get(lbl, 0) }}</td>
+        {% endfor %}
+        <td class="font-bold">{{ row_total }}</td>
+        <td>{{ ph.target }}</td>
+        <td>
+          <span style="{% if ach_rate >= 100 %}color:#16a34a;font-weight:600{% elif ach_rate >= 80 %}color:#ea580c;font-weight:600{% else %}color:#dc2626;font-weight:600{% endif %}">{{ '%.2f'|format(ach_rate) }}%</span>
+        </td>
+      </tr>
+      {% endfor %}
+      {% set xgrand_total = xray_hourly_totals.values()|sum %}
+      <tr style="background:#fefce8;border-top:2px solid #fbbf24">
+        <td><span style="font-size:14px;color:#854d0e;font-weight:900">∑</span></td>
+        <td style="color:#854d0e;font-weight:800;font-size:14px">单小时运能</td>
+        {% for lbl in xhour_labels|sort %}
+        <td class="total-num" style="font-weight:900;font-size:15px;color:#b45309">{{ xray_hourly_totals.get(lbl, 0) }}</td>
+        {% endfor %}
+        <td class="total-num" style="font-weight:900;font-size:15px;color:#b45309">{{ xgrand_total }}</td>
+        <td><span style="color:#9ca3af;font-weight:600;font-size:13px">-</span></td>
+        <td><span style="color:#9ca3af;font-weight:600;font-size:13px">-</span></td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <h3>暂无X光设备时段数据</h3>
+    <p>点击「刷新数据」后将按设备编号统计</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── 通道切换逻辑 ──
+let currentChannel = 'all';
+
+// 各通道完整KPI数据（供顶部6卡片动态切换）
+const channelKpi = {
+  all: {
+    staff_count: {{ k.staff_count or 0 }},
+    total_products: {{ k.total_products or 0 }},
+    total_hours: {{ k.total_hours or 0 }},
+    avg_upph: {{ k.avg_upph or 0 }},
+    pass_rate: {{ k.pass_rate or 0 }},
+    qualified_count: {{ k.qualified_count or 0 }},
+    unqualified_count: {{ k.unqualified_count or 0 }},
+  },
+  godzilla: {
+    staff_count: {{ (channels or {}).get('godzilla', {}).get('count', 0) }},
+    total_products: {{ (channels or {}).get('godzilla', {}).get('total_products', 0) }},
+    total_hours: {{ (channels or {}).get('godzilla', {}).get('total_hours', 0) }},
+    avg_upph: {{ (channels or {}).get('godzilla', {}).get('avg_upph', 0) }},
+    pass_rate: {{ (channels or {}).get('godzilla', {}).get('pass_rate', 0) }},
+    qualified_count: {{ (channels or {}).get('godzilla', {}).get('qualified_count', 0) }},
+    unqualified_count: {{ (channels or {}).get('godzilla', {}).get('unqualified_count', 0) }},
+  },
+  mirror: {
+    staff_count: {{ (channels or {}).get('mirror', {}).get('count', 0) }},
+    total_products: {{ (channels or {}).get('mirror', {}).get('total_products', 0) }},
+    total_hours: {{ (channels or {}).get('mirror', {}).get('total_hours', 0) }},
+    avg_upph: {{ (channels or {}).get('mirror', {}).get('avg_upph', 0) }},
+    pass_rate: {{ (channels or {}).get('mirror', {}).get('pass_rate', 0) }},
+    qualified_count: {{ (channels or {}).get('mirror', {}).get('qualified_count', 0) }},
+    unqualified_count: {{ (channels or {}).get('mirror', {}).get('unqualified_count', 0) }},
+  },
+  xray: {
+    staff_count: {{ (channels or {}).get('xray', {}).get('count', 0) }},
+    total_products: {{ (channels or {}).get('xray', {}).get('total_products', 0) }},
+    total_hours: {{ (channels or {}).get('xray', {}).get('total_hours', 0) }},
+    avg_upph: {{ (channels or {}).get('xray', {}).get('avg_upph', 0) }},
+    pass_rate: {{ (channels or {}).get('xray', {}).get('pass_rate', 0) }},
+    qualified_count: {{ (channels or {}).get('xray', {}).get('qualified_count', 0) }},
+    unqualified_count: {{ (channels or {}).get('xray', {}).get('unqualified_count', 0) }},
+  }
+};
+
+function switchChannel(channel, tabEl) {
+  currentChannel = channel;
+
+  // 更新Tab激活态
+  document.querySelectorAll('.channel-tab').forEach(function(t){ t.classList.remove('active'); });
+  tabEl.classList.add('active');
+
+  const isXray = (channel === 'xray');
+
+  // 显隐：人员维度表(哥斯拉/魔镜) vs 设备维度表(X光)
+  document.getElementById('staffTableWrap').style.display = isXray ? 'none' : '';
+  document.getElementById('xrayStaffWrap').style.display  = isXray ? '' : 'none';
+  document.getElementById('hourlyWrap').style.display     = isXray ? 'none' : '';
+  document.getElementById('xrayHourlyWrap').style.display = isXray ? '' : 'none';
+
+  // ── 更新顶部6个KPI卡片为当前通道数据 ──
+  const d = channelKpi[channel] || channelKpi['all'];
+  document.querySelector('#kpiStaffCount .auto-kpi-value').textContent = d.staff_count;
+  document.querySelector('#kpiTotalProducts .auto-kpi-value').textContent = d.total_products.toLocaleString();
+  document.querySelector('#kpiTotalHours .auto-kpi-value').textContent = d.total_hours;
+  document.querySelector('#kpiAvgUpph .auto-kpi-value').textContent = d.avg_upph;
+  document.getElementById('kpiPassRateVal').textContent = d.pass_rate;
+  document.getElementById('kpiQualifiedSub').textContent =
+    '达标 ' + d.qualified_count + ' / 未达标 ' + d.unqualified_count;
+  document.getElementById('kpiUnqualifiedVal').textContent = d.unqualified_count;
+
+  if (isXray) {
+    document.getElementById('currentChannelLabel').textContent = 'X-Ray';
+    document.getElementById('xrayStaffCountInfo').textContent =
+      '共 ' + ({{ (channels or {}).get('xray', {}).get('count', 0) }}) + ' 台设备';
+    return;
+  }
+
+  // 人员维度：过滤 + 计数
+  const labels = {all:'全部', godzilla:'哥斯拉', mirror:'魔镜'};
+  document.getElementById('currentChannelLabel').textContent = labels[channel] || channel;
+  filterStaffTable(channel);
+  filterHourlyTable(channel);
+  updateStaffCount(channel);
+}
+
+function filterStaffTable(channel) {
+  const rows = document.querySelectorAll('#staffTableBody tr[data-source]');
+  let visibleCount = 0;
+  rows.forEach(function(row) {
+    if (channel === 'all') {
+      row.style.display = '';
+      visibleCount++;
+    } else {
+      const src = row.getAttribute('data-source');
+      if (src === channel) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    }
+  });
+}
+
+function filterHourlyTable(channel) {
+  const rows = document.querySelectorAll('#hourlyTableBody tr[data-hchannel]');
+  rows.forEach(function(row) {
+    if (channel === 'all') {
+      row.style.display = '';
+    } else {
+      const chn = row.getAttribute('data-hchannel');
+      row.style.display = (chn === channel) ? '' : 'none';
+    }
+  });
+  // 同步切换「单小时运能」合计行数值
+  const totalRow = document.getElementById('hourlyTotalRow');
+  if (totalRow) {
+    const tds = totalRow.querySelectorAll('td[data-all]');
+    tds.forEach(function(td) {
+      const val = td.getAttribute('data-' + (channel === 'all' ? 'all' : channel)) || td.getAttribute('data-all');
+      td.textContent = val;
+    });
+  }
+}
+
+function updateStaffCount(channel) {
+  const counts = {
+    all: {{ kpi.get('staff_count', 0) if kpi else 0 }},
+    godzilla: {{ (channels or {}).get('godzilla', {}).get('count', 0) }},
+    mirror: {{ (channels or {}).get('mirror', {}).get('count', 0) }},
+  };
+  document.getElementById('staffCountInfo').textContent = '共 ' + (counts[channel] || 0) + ' 人';
+}
+
+// 初始化默认通道（全部）
+switchChannel('all', document.querySelector('.channel-tab.ch-all'));
+
+function refreshAuto(btn) {
+  btn.disabled = true; btn.innerHTML = '⟳ 刷新中...';
+  fetch('/api/automation/refresh', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      btn.disabled = false; btn.innerHTML = '↻ 刷新数据';
+      if (res.ok) {
+        if (res.session_expired) alert('数据源登录已失效，未获取到新数据，请先恢复数据源会话');
+        location.reload();
+      } else {
+        alert('刷新失败: ' + (res.error || '未知错误'));
+      }
+    })
+    .catch(function(err) {
+      btn.disabled = false; btn.innerHTML = '↻ 刷新数据';
+      alert('网络错误: ' + err.message);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,721 @@
+{
+  "dateTime": {
+    "title": "数据更新",
+    "type": "dateTime",
+    "items": []
+  },
+  "dataTotal": 49,
+  "selectedChart": 1,
+  "cache": false,
+  "data": [],
+  "queryParams": [],
+  "indexConfig": [],
+  "filters": [],
+  "chartStyles": {
+    "table": {
+      "fontFamily": "PingFang SC",
+      "color": "#666",
+      "lineStyle": "solid",
+      "headerBackgroundColor": "#f7f7f7",
+      "fontSize": "12",
+      "lineColor": "#D9D9D9"
+    }
+  },
+  "check": false,
+  "rows": [],
+  "widgetTips": "",
+  "mode": "chart",
+  "expired": 300,
+  "dataTime": true,
+  "orders": [
+    {
+      "column": "操作日期",
+      "direction": "asc"
+    }
+  ],
+  "model": {
+    "状态": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "看图成色": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "IMEI号": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "商家时长(H)": {
+      "visualType": "number",
+      "sqlType": "DECIMAL",
+      "modelType": "value"
+    },
+    "业务来源": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "是否完成瑕疵拍照": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "拍照出库完成时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "创建日期": {
+      "visualType": "date",
+      "sqlType": "DATE",
+      "modelType": "category"
+    },
+    "运营中心名称": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "拍照后入库日期str": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "步骤2拍照张数": {
+      "visualType": "number",
+      "sqlType": "BIGINT",
+      "modelType": "value"
+    },
+    "品牌": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "拍照时长": {
+      "visualType": "number",
+      "sqlType": "BIGINT",
+      "modelType": "value"
+    },
+    "操作时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "步骤1拍照张数": {
+      "visualType": "number",
+      "sqlType": "BIGINT",
+      "modelType": "value"
+    },
+    "光合设备拍照日期": {
+      "visualType": "date",
+      "sqlType": "DATE",
+      "modelType": "category"
+    },
+    "战区": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "品类id": {
+      "visualType": "number",
+      "sqlType": "BIGINT",
+      "modelType": "value"
+    },
+    "运营中心id": {
+      "visualType": "number",
+      "sqlType": "BIGINT",
+      "modelType": "value"
+    },
+    "入库时长(H)": {
+      "visualType": "number",
+      "sqlType": "DECIMAL",
+      "modelType": "value"
+    },
+    "光合设备拍照时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "品牌id": {
+      "visualType": "number",
+      "sqlType": "BIGINT",
+      "modelType": "value"
+    },
+    "拍照入库完成时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "步骤一处理人": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "拍照出库创建时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "步骤一拍照方式": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "接收时长(H)": {
+      "visualType": "number",
+      "sqlType": "DECIMAL",
+      "modelType": "value"
+    },
+    "操作日期": {
+      "visualType": "date",
+      "sqlType": "DATE",
+      "modelType": "category"
+    },
+    "拍照移交完成时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "步骤一完成时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "瑕疵图url": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "型号": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "上一移交部门名称": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "发起时长(H)": {
+      "visualType": "number",
+      "sqlType": "DECIMAL",
+      "modelType": "value"
+    },
+    "服务标准": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "后端等级": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "品类": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "数量": {
+      "visualType": "number",
+      "sqlType": "TINYINT",
+      "modelType": "value"
+    },
+    "步骤二处理人": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "步骤一时长": {
+      "visualType": "number",
+      "sqlType": "DECIMAL",
+      "modelType": "value"
+    },
+    "物品编号": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "出库时长(H)": {
+      "visualType": "number",
+      "sqlType": "DECIMAL",
+      "modelType": "value"
+    },
+    "设备类型": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "上一部门移交时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "型号id": {
+      "visualType": "number",
+      "sqlType": "BIGINT",
+      "modelType": "value"
+    },
+    "运营中心类型": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "拍照时长区间": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "拍照后入库日期": {
+      "visualType": "date",
+      "sqlType": "DATE",
+      "modelType": "category"
+    },
+    "拍照移交完成日期": {
+      "visualType": "date",
+      "sqlType": "DATE",
+      "modelType": "category"
+    },
+    "优品复检出库创建时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "拍照前最新质检完成时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "光合设备编号": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "任务单号": {
+      "visualType": "string",
+      "sqlType": "VARCHAR",
+      "modelType": "category"
+    },
+    "步骤二完成时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "质检参考价": {
+      "visualType": "number",
+      "sqlType": "DECIMAL",
+      "modelType": "value"
+    },
+    "拍照接收时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "步骤二时长": {
+      "visualType": "number",
+      "sqlType": "DECIMAL",
+      "modelType": "value"
+    },
+    "创建时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "拍照后入库时间": {
+      "visualType": "date",
+      "sqlType": "TIMESTAMP",
+      "modelType": "category"
+    },
+    "优品复检出库创建到拍照完成时长": {
+      "visualType": "number",
+      "sqlType": "BIGINT",
+      "modelType": "value"
+    },
+    "类型": {
+      "visualType": "number",
+      "sqlType": "BIGINT",
+      "modelType": "value"
+    }
+  },
+  "metrics": [
+    {
+      "agg": "sum",
+      "visualType": "number",
+      "name": "步骤一时长@davinci@83778883",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    },
+    {
+      "agg": "sum",
+      "visualType": "number",
+      "name": "步骤二时长@davinci@3E055725",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    },
+    {
+      "agg": "sum",
+      "visualType": "number",
+      "name": "步骤1拍照张数@davinci@2DFA3599",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    },
+    {
+      "agg": "sum",
+      "visualType": "number",
+      "name": "步骤2拍照张数@davinci@C78A524F",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    },
+    {
+      "agg": "custom",
+      "visualType": "string",
+      "udf": "round(sum(\"拍照时长\")*1.00/3600,2)",
+      "name": "拍照时长(H)@davinci@2FD8A830",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    },
+    {
+      "agg": "sum",
+      "visualType": "number",
+      "name": "商家时长(H)@davinci@FE7B9C42",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    },
+    {
+      "agg": "sum",
+      "visualType": "number",
+      "name": "发起时长(H)@davinci@3D940B60",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    },
+    {
+      "agg": "sum",
+      "visualType": "number",
+      "name": "出库时长(H)@davinci@51A72B4F",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    },
+    {
+      "agg": "sum",
+      "visualType": "number",
+      "name": "接收时长(H)@davinci@D862806E",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    },
+    {
+      "agg": "sum",
+      "visualType": "number",
+      "name": "入库时长(H)@davinci@6DF959EC",
+      "type": "value",
+      "config": true,
+      "chart": {
+        "coordinate": "other",
+        "requireDimetions": [
+          0,
+          9999
+        ],
+        "data": {},
+        "name": "table",
+        "icon": "icon-table",
+        "style": {
+          "table": {
+            "fontFamily": "PingFang SC",
+            "color": "#666",
+            "lineStyle": "solid",
+            "headerBackgroundColor": "#f7f7f7",
+            "fontSize": "12",
+            "lineColor": "#D9D9D9"
+          }
+        },
+        "id": 1,
+        "requireMetrics": [
+          0,
+          9999
+        ],
+        "title": "表格"
+      }
+    }
+  ],
+  "renderType": "rerender",
+  "cols": [
+    "拍照移交完成日期",
+    "操作日期",
+    "操作时间",
+    "拍照移交完成时间",
+    "上一移交部门名称",
+    "上一部门移交时间",
+    "创建日期",
+    "创建时间",
+    "物品编号",
+    "任务单号",
+    "步骤一拍照方式",
+    "服务标准",
+    "是否完成瑕疵拍照",
+    "步骤一完成时间",
+    "步骤二完成时间",
+    "步骤一处理人",
+    "步骤二处理人",
+    "瑕疵图url",
+    "品类",
+    "品牌",
+    "型号id",
+    "型号",
+    "IMEI号",
+    "状态",
+    "运营中心名称",
+    "运营中心类型",
+    "战区",
+    "业务来源",
+    "拍照接收时间",
+    "拍照出库创建时间",
+    "拍照出库完成时间",
+    "拍照前最新质检完成时间",
+    "拍照后入库时间",
+    "拍照时长区间",
+    "设备类型",
+    "质检参考价",
+    "看图成色",
+    "后端等级",
+    "光合设备编号",
+    "光合设备拍照时间",
+    "光合设备拍照日期"
+  ],
+  "dimensionConfig": []
+}

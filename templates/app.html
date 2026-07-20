@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+{% block title %}APP效率监控 - 效率看板{% endblock %}
+{% block page_title %}{% endblock %}
+{% block content %}
+{% set d = data or {} %}
+
+<style>
+/* ── APP效率监控专用样式 ── */
+.app-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.app-toolbar h2 { font-size: 20px; font-weight: 700; color: var(--text); }
+.btn-refresh {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--text); font-size: 13px;
+  cursor: pointer; transition: all .15s;
+}
+.btn-refresh:hover { background: #f5f6fa; border-color: var(--accent); color: var(--accent); }
+.btn-refresh.loading { opacity: .7; pointer-events: none; }
+
+/* ── 8卡片网格 (2行4列) ── */
+.app-kpi-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  margin-bottom: 24px;
+}
+.app-kpi-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 18px 20px; box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+  transition: transform .15s, box-shadow .15s;
+}
+.app-kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.app-kpi-label { font-size: 14px; color: var(--text); font-weight: 700; margin-bottom: 10px; }
+.app-kpi-value { font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 4px; }
+.app-kpi-sub { font-size: 11px; color: var(--text3); }
+.app-kpi-icon {
+  position: absolute; right: 14px; top: 14px;
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; opacity: .85;
+}
+
+/* 卡片配色 */
+.app-kpi-blue { background: linear-gradient(135deg, #e8f4fd, #f0f8ff); }
+.app-kpi-blue .app-kpi-icon { background: #dbeafe; color: #2563eb; }
+.app-kpi-green { background: linear-gradient(135deg, #e8f8ee, #f0fff4); }
+.app-kpi-green .app-kpi-icon { background: #dcfce7; color: #16a34a; }
+.app-kpi-orange { background: linear-gradient(135deg, #fef6e8, #fffbeb); }
+.app-kpi-orange .app-kpi-icon { background: #fed7aa; color: #ea580c; }
+.app-kpi-purple { background: linear-gradient(135deg, #f3e8fd, #faf5ff); }
+.app-kpi-purple .app-kpi-icon { background: #ede9fe; color: #9333ea; }
+.app-kpi-pink { background: linear-gradient(135deg, #fde8ef, #fff1f5); }
+.app-kpi-pink .app-kpi-icon { background: #fce7f3; color: #db2777; }
+.app-kpi-cyan { background: linear-gradient(135deg, #e8fdf9, #f0fdfa); }
+.app-kpi-cyan .app-kpi-icon { background: #ccfbf1; color: #0d9488; }
+.app-kpi-lime { background: linear-gradient(135deg, #ecfccb, #fefce8); }
+.app-kpi-lime .app-kpi-icon { background: #d9f99d; color: #65a30d; }
+.app-kpi-red { background: linear-gradient(135deg, #fee2e2, #fef2f2); }
+.app-kpi-red .app-kpi-icon { background: #fecaca; color: #dc2626; }
+
+.value-highlight-green { color: #16a34a; }
+.value-highlight-red { color: #dc2626; }
+
+/* ── 区块标题 ── */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.section-count { font-size: 13px; color: var(--text2); }
+
+/* ── 人员表格 ── */
+.app-table-wrap {
+  background: var(--card); border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  padding: 20px; margin-bottom: 24px;
+}
+.app-table {
+  width: 100%; table-layout: fixed;
+  border-collapse: collapse;
+}
+.app-table th, .app-table td {
+  padding: 10px 8px; font-size: 13px;
+  text-align: center; vertical-align: middle;
+  overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.app-table th { font-weight: 700; background: #fafbfc; color: var(--text2); font-size: 14px; }
+.app-table td { font-weight: 600; color: var(--text); }
+.app-table tr:hover td { background: #f8f9ff; }
+
+.rank-medal {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-size: 13px; font-weight: 700; color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18); flex-shrink: 1;
+}
+.rank-gold { background: linear-gradient(135deg, #fcd34d, #f59e0b); }
+.rank-silver { background: linear-gradient(135deg, #e2e8f0, #94a3b8); }
+.rank-bronze { background: linear-gradient(135deg, #f0b486, #cd7c32); }
+
+/* 胶囊标签 — 统一紧凑风格 */
+.tag-fulltime { background: #dbeafe; color: #1d4ed8; padding: 3px 11px; border-radius: 10px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; flex-shrink: 1; }
+.tag-parttime { background: #fef3c7; color: #b45309; padding: 3px 11px; border-radius: 10px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; flex-shrink: 1; }
+.tag-position { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #7c3aed; padding: 3px 13px; border-radius: 10px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; flex-shrink: 1; }
+.dev-android { background: #dcfce7; color: #15803d; padding: 3px 11px; border-radius: 5px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; flex-shrink: 1; }
+.dev-apple { background: #fee2e2; color: #dc2626; padding: 3px 11px; border-radius: 5px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; flex-shrink: 1; }
+.dev-both { background: #ede9fe; color: #7c3aed; padding: 3px 11px; border-radius: 5px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; flex-shrink: 1; }
+.dev-none { background: #f3f4f6; color: #9ca3af; padding: 3px 11px; border-radius: 5px; font-size: 13px; font-weight: 700; display: inline-block; white-space: nowrap; flex-shrink: 1; }
+
+/* ── 效率达成：所有子元素都允许压缩 ── */
+.achieve-cell {
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; width: 100%;
+  min-width: 0; /* ← 关键：允许flex容器被父td约束 */
+}
+.progress-wrap {
+  width: 48px; height: 6px; background: #e5e7eb;
+  border-radius: 3px; overflow: hidden;
+  flex: 0 0 auto;
+}
+.progress-bar { height: 100%; border-radius: 3px; }
+.progress-high { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.progress-mid { background: linear-gradient(90deg, #ea580c, #f97316); }
+.progress-low { background: linear-gradient(90deg, #eab308, #facc15); }
+.progress-crit { background: linear-gradient(90deg, #dc2626, #ef4444); }
+.progress-pass { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.progress-fail { background: linear-gradient(90deg, #dc2626, #ef4444); }
+
+.achieve-pct {
+  font-size: 13px; font-weight: 700;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.txt-pass { color: #16a34a; }
+.txt-fail { color: #dc2626; }
+
+.badge-pass, .badge-fail {
+  padding: 2px 7px; border-radius: 8px;
+  font-size: 11px; font-weight: 600;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.badge-pass { background: #dcfce7; color: #16a34a; }
+.badge-fail { background: #fee2e2; color: #dc2626; }
+
+/* ── 时段表格 ── */
+.hourly-table th.bg-orange { background: #fff7ed; color: #c2410c; font-size: 13px; }
+.hourly-table th.bg-purple { background: #faf5ff; color: #7c3aed; font-size: 13px; }
+.hourly-table td.text-center { text-align: center; font-size: 13px; }
+.hourly-table td.hourly-num { text-align: center; font-weight: 600; font-size: 14px; }
+.hourly-table tfoot td {
+  background: #fefce8; border-top: 2px solid var(--border);
+  font-weight: 800; font-size: 14px; color: #854d0e;
+}
+.hourly-table tfoot .total-label { font-weight: 800; color: #854d0e; font-size: 14px; }
+.hourly-table tfoot .total-num { color: #b45309; font-weight: 900; font-size: 15px; }
+
+/* ── 空状态 ── */
+.empty-state { text-align: center; padding: 50px 20px; color: var(--text2); }
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: .35; }
+.empty-state h3 { font-size: 16px; color: var(--text); margin-bottom: 4px; }
+.empty-state p { font-size: 13px; }
+
+/* 响应式 */
+@media (max-width: 1200px) { .app-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px) { .app-kpi-grid { grid-template-columns: 1fr; } .app-table { font-size: 12px; } .app-table th, .app-table td { padding: 8px 10px; } }
+</style>
+
+<!-- 工具栏 -->
+<div class="app-toolbar">
+  <div>
+    <h2>APP效率监控</h2>
+  </div>
+  <button class="btn-refresh" onclick="refreshAppData(this)">
+    <span>↻</span> 刷新数据
+  </button>
+</div>
+
+<!-- 8个KPI卡片 -->
+<div class="app-kpi-grid anim delay-1">
+  <!-- 第一行 -->
+  <div class="app-kpi-card app-kpi-blue anim delay-1">
+    <div class="app-kpi-label">出勤人数</div>
+    <div class="app-kpi-value">{{ d.staff_count or 0 }}</div>
+    <div class="app-kpi-sub">人</div>
+    <div class="app-kpi-icon">👥</div>
+  </div>
+  <div class="app-kpi-card app-kpi-green anim delay-2">
+    <div class="app-kpi-label">总处理量</div>
+    <div class="app-kpi-value">{{ fmt(d.total_products or 0) }}</div>
+    <div class="app-kpi-sub">单</div>
+    <div class="app-kpi-icon">📦</div>
+  </div>
+  <div class="app-kpi-card app-kpi-orange anim delay-3">
+    <div class="app-kpi-label">平均UPPH</div>
+    <div class="app-kpi-value">{{ d.avg_upph or 0 }}</div>
+    <div class="app-kpi-sub">单/小时</div>
+    <div class="app-kpi-icon">📊</div>
+  </div>
+  <div class="app-kpi-card app-kpi-purple anim delay-4">
+    <div class="app-kpi-label">单小时运能</div>
+    <div class="app-kpi-value">{{ d.ops_per_hour or 0 }}</div>
+    <div class="app-kpi-sub">单/小时</div>
+    <div class="app-kpi-icon">⚡</div>
+  </div>
+  <!-- 第二行 -->
+  <div class="app-kpi-card app-kpi-pink anim delay-1">
+    <div class="app-kpi-label">总出勤工时</div>
+    <div class="app-kpi-value">{{ d.total_hours or 0 }}</div>
+    <div class="app-kpi-sub">小时</div>
+    <div class="app-kpi-icon">🕐</div>
+  </div>
+  <div class="app-kpi-card app-kpi-cyan anim delay-2">
+    <div class="app-kpi-label">平均工时</div>
+    <div class="app-kpi-value">{{ d.avg_hours or 0 }}</div>
+    <div class="app-kpi-sub">小时/人</div>
+    <div class="app-kpi-icon">🕑</div>
+  </div>
+  <div class="app-kpi-card app-kpi-lime anim delay-3">
+    <div class="app-kpi-label">达标人数</div>
+    <div class="app-kpi-value value-highlight-green">{{ d.qualified_count or 0 }}<span style="font-size:20px;color:var(--text2)">/{{ d.staff_count or 0 }}</span></div>
+    <div class="app-kpi-sub">人</div>
+    <div class="app-kpi-icon">✅</div>
+  </div>
+  <div class="app-kpi-card app-kpi-red anim delay-4">
+    <div class="app-kpi-label">未达标人数</div>
+    <div class="app-kpi-value value-highlight-red">{{ d.unqualified_count or 0 }}</div>
+    <div class="app-kpi-sub">人</div>
+    <div class="app-kpi-icon">⚠️</div>
+  </div>
+</div>
+
+{# ─────────── APP效率人员明细（单表） ─────────── #}
+<div class="app-table-wrap anim delay-2">
+  <div class="section-header">
+    <div class="section-title"><span style="margin-right:4px">📋</span>人员效率明细</div>
+    <div class="section-count">共 {{ d.staff_count or 0 }} 人（全职 {{ d.ft_count or 0 }} / 兼职 {{ d.pt_count or 0 }}）</div>
+  </div>
+  {% if d.app_rows %}
+  <table class="app-table">
+    <colgroup>
+      <col style="width:10%">  <!-- 排名 -->
+      <col style="width:10%">  <!-- 姓名 -->
+      <col style="width:10%">  <!-- 类型 -->
+      <col style="width:10%">  <!-- 岗位 -->
+      <col style="width:10%">  <!-- 总处理量 -->
+      <col style="width:10%">  <!-- 装跑类型 -->
+      <col style="width:10%">  <!-- 效率时长 -->
+      <col style="width:10%">  <!-- UPPH -->
+      <col style="width:20%">  <!-- 效率达成 -->
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="rank-col">排名</th>
+        <th>姓名</th>
+        <th>类型</th>
+        <th>岗位</th>
+        <th>总处理量</th>
+        <th>装跑类型</th>
+        <th>效率时长(h)</th>
+        <th>UPPH</th>
+        <th>效率达成</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in d.app_rows %}
+      <tr>
+        <td class="rank-col">
+          {% if loop.index == 1 %}<span class="rank-medal rank-gold">1</span>
+          {% elif loop.index == 2 %}<span class="rank-medal rank-silver">2</span>
+          {% elif loop.index == 3 %}<span class="rank-medal rank-bronze">3</span>
+          {% else %}<span style="color:var(--text2);font-weight:600">{{ loop.index }}</span>{% endif %}
+        </td>
+        <td class="font-bold">{{ s.name }}</td>
+        <td><span class="{% if s.emp_type == '兼职' %}tag-parttime{% else %}tag-fulltime{% endif %}">{{ s.emp_type }}</span></td>
+        <td><span class="tag-position">{{ s.position }}</span></td>
+        <td style="font-weight:700">{{ fmt(s.products) }}</td>
+        <td>
+          <span class="dev-tag {% if s.device == '苹果' %}dev-apple{% elif s.device == '安卓+苹果' %}dev-both{% elif s.device == '无' %}dev-none{% else %}dev-android{% endif %}">{{ s.device }}</span>
+        </td>
+        <td style="font-weight:700">{{ '%.2f'|format(s.hours) if s.hours else '-' }}</td>
+        <td class="font-bold">{{ s.upph }}</td>
+        <td>
+          <div class="achieve-cell">
+            <div class="progress-wrap">
+              <div class="progress-bar {% if s.qualified %}progress-pass{% else %}progress-fail{% endif %}" style="width:{{ [s.rate, 100]|min }}%"></div>
+            </div>
+            <span class="achieve-pct {% if s.qualified %}txt-pass{% else %}txt-fail{% endif %}">{{ '%.2f'|format(s.rate) }}%</span>
+            <span class="{% if s.qualified %}badge-pass{% else %}badge-fail{% endif %}">{{ '达标' if s.qualified else '未达标' }}</span>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <p style="color:var(--text2);font-size:13px">暂无数据</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 时段处理量 -->
+<div class="app-table-wrap anim delay-4">
+  <div class="section-header">
+    <div class="section-title"><span style="margin-right:4px">📊</span>时段处理量</div>
+    <div class="section-count">按小时统计</div>
+  </div>
+  {% set hl = d.get('hourly_data', []) or [] %}
+  {% if hl %}
+  {# 动态收集所有时段列 #}
+  {% set hour_labels = [] %}
+  {% for h in hl %}
+    {% if h.get('hour_label') not in hour_labels %}{% if hour_labels.append(h['hour_label']) %}{% endif %}{% endif %}
+  {% endfor %}
+  {# 按姓名聚合时段数据 #}
+  {% set person_hours = {} %}
+  {% for h in hl %}
+    {% set _nm = h.get('name','') %}
+    {% if _nm not in person_hours %}{% if person_hours.update({_nm: {'emp_no':h.get('emp_no',''),'cat':h.get('cat','-'), 'rows':{}}}) %}{% endif %}{% endif %}
+    {% if person_hours[_nm]['rows'].update({h.get('hour_label',''): h.get('count',0)}) %}{% endif %}
+    {% if person_hours[_nm].update({'target': h.get('target',26.3)}) %}{% endif %}
+  {% endfor %}
+  {# 排序：按合计总量降序 #}
+  {% set sorted_names = person_hours.keys()|list %}
+  <table class="app-table hourly-table">
+    <colgroup>
+      <col style="width:6%">   <!-- 排名 -->
+      <col style="width:9%">   <!-- 姓名 -->
+      <col style="width:9%">   <!-- 工号 -->
+      {% for lbl in hour_labels|sort %}
+      <col style="width:{{ (58 / (hour_labels|length))|round(1) }}%">
+      {% endfor %}
+      <col style="width:8%">   <!-- 合计 -->
+      <col style="width:6%">   <!-- 目标 -->
+      <col style="width:10%">  <!-- 达成率 -->
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="rank-col" style="width:48px">排名</th>
+        <th style="min-width:70px">姓名</th>
+        <th style="min-width:70px">工号</th>
+        {% for lbl in hour_labels|sort %}
+        <th class="bg-orange" style="min-width:72px;text-align:center">{{ lbl }}</th>
+        {% endfor %}
+        <th class="bg-orange" style="min-width:56px;text-align:center;font-weight:700">合计</th>
+        <th class="bg-purple" style="min-width:52px;text-align:center">目标</th>
+        <th style="min-width:64px;text-align:center">达成率</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for nm in sorted_names %}
+      {% set ph = person_hours[nm] %}
+      {% set row_total = ph.rows.values()|sum %}
+      {# 达成率：后端 hourly_rates = 该人各时段达成率（cnt/目标×100）的算术平均值 #}
+      {% set hrates = d.get('hourly_rates', {}) or {} %}
+      {% set ach_rate = hrates.get(nm, 0) %}
+      {% if row_total > 0 %}
+      <tr>
+        <td class="rank-col">
+          {% if loop.index == 1 %}<span class="rank-medal rank-gold">1</span>
+          {% elif loop.index == 2 %}<span class="rank-medal rank-silver">2</span>
+          {% elif loop.index == 3 %}<span class="rank-medal rank-bronze">3</span>
+          {% else %}<span style="color:var(--text2);font-weight:600">{{ loop.index }}</span>{% endif %}
+        </td>
+        <td class="font-bold">{{ nm }}</td>
+        <td style="font-size:13px;color:var(--text2)">{{ ph.emp_no or '-' }}</td>
+        {% for lbl in hour_labels|sort %}
+        <td class="hourly-num">{{ ph.rows.get(lbl, 0) }}</td>
+        {% endfor %}
+        <td class="text-center font-bold">{{ row_total }}</td>
+        <td class="text-center">{{ ph.target }}</td>
+        <td class="text-center">
+          <span style="{% if ach_rate >= 100 %}color:#16a34a;font-weight:600{% elif ach_rate >= 80 %}color:#ea580c;font-weight:600{% else %}color:#dc2626;font-weight:600{% endif %}">{{ '%.2f'|format(ach_rate) }}%</span>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+      {# ── 单小时运能 合计行（全加粗） ─#}
+      {% set ht = d.get('hourly_totals', {}) or {} %}
+      {% set grand_total = ht.values()|sum %}
+      <tr style="background:#fefce8;border-top:2px solid #fbbf24">
+        <td class="rank-col"><span style="font-size:14px;color:#854d0e;font-weight:900">∑</span></td>
+        <td class="font-bold" style="color:#854d0e;font-weight:800;font-size:14px">单小时运能</td>
+        <td><span style="color:#9ca3af;font-size:13px;font-weight:600">-</span></td>
+        {% for lbl in hour_labels|sort %}
+        <td class="hourly-num total-num" style="font-weight:900;font-size:15px">{{ ht.get(lbl, 0) }}</td>
+        {% endfor %}
+        <td class="text-center total-num" style="font-weight:900;font-size:15px">{{ grand_total }}</td>
+        <td class="text-center"><span style="color:#7c3aed;font-weight:700;font-size:13px">-</span></td>
+        <td class="text-center"><span style="color:#9ca3af;font-weight:600;font-size:13px">-</span></td>
+      </tr>
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <p style="color:var(--text2);font-size:13px">暂无数据</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshAppData(btn) {
+  btn.classList.add('loading');
+  btn.innerHTML = '<span>⟳</span> 刷新中...';
+  fetch('/api/app-efficiency/refresh', { method: 'POST' })
+    .then(r => r.json())
+    .then(res => {
+      btn.classList.remove('loading');
+      btn.innerHTML = '<span>↻</span> 刷新数据';
+      if (res.ok) location.reload();
+      else alert('刷新失败: ' + (res.error || '未知错误'));
+    })
+    .catch(err => {
+      btn.classList.remove('loading');
+      btn.innerHTML = '<span>↻</span> 刷新数据';
+      alert('网络错误: ' + err.message);
+    });
+}
+
+// 每10分钟自动刷新一次
+setInterval(function() {
+  var btn = document.querySelector('.btn-refresh');
+  if (btn && !btn.classList.contains('loading')) refreshAppData(btn);
+}, 10 * 60 * 1000); // 600000ms = 10分钟
+</script>
+{% endblock %}

@@ -1,0 +1,29 @@
+# Render 一键部署蓝图
+# 部署方式：访问 https://render.com/deploy?repo=https://github.com/Neo123-bug/efficiency-dashboard
+# 或把本仓库连到 Render 后，Render 会自动读取此文件创建服务。
+services:
+  - type: web
+    name: efficiency-dashboard
+    runtime: python
+    plan: free
+    region: singapore
+    branch: master
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    healthCheckPath: /
+    # 以下密钥在 Render 控制台「Environment」中填一次即可（sync:false 表示不写进公开仓库）
+    envVars:
+      - key: GODZILLA_SESSION
+        sync: false
+      - key: MIRROR_SESSION
+        sync: false
+      - key: WATCHER_SESSION
+        sync: false
+      - key: FEISHU_APP_SECRET
+        sync: false
+      - key: FEISHU_TREND_APP_SECRET
+        sync: false
+      - key: AIHUISHOU_CAS_USERNAME
+        sync: false
+      - key: AIHUISHOU_CAS_PASSWORD
+        sync: false

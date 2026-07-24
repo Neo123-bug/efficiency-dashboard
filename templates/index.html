@@ -316,10 +316,10 @@ function renderTrend(trend) {
   baseGrad.addColorStop(0, 'rgba(107, 114, 128, 0.18)');
   baseGrad.addColorStop(1, 'rgba(107, 114, 128, 0.02)');
 
-  // Y轴下限自适应：取所有数据最小值向下取整到5的倍数，最低60%
+  // Y轴下限自适应：取所有数据最小值向下取整到5的倍数，再留10%底部边距，最低60%
   const allVals = (trend.baseline || []).concat(trend.current || []).filter(v => v != null && isFinite(v));
   const dataMin = allVals.length ? Math.min(...allVals) : 75;
-  const yMin = Math.max(60, Math.floor(dataMin / 5) * 5 - 5);
+  const yMin = Math.max(60, Math.floor(dataMin / 5) * 5 - 10);
 
   new Chart(ctx, {
     type: 'line',

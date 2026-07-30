@@ -729,6 +729,10 @@ def _adapt_app(data, keep=None):
     # 过滤非人员记录
     ranking = [s for s in ranking if _is_person_name(s.get('name', ''))]
 
+    # 规范化姓名：去除内部空格（源数据偶发"李 娟"带空格，导致花名册工号按姓名匹配失败）
+    for s in ranking:
+        s['name'] = (s.get('name') or '').replace(' ', '').strip()
+
     # 花名册组过滤（APP组）
     if keep is not None:
         ranking = [s for s in ranking if keep(s)]
@@ -814,6 +818,7 @@ def _adapt_app(data, keep=None):
         # 今日无任何扫码记录（总处理量=0）则效率时长记为 0，避免回退到月累计时长。
         if total <= 0:
             wh = 0
+            hours_estimated = False
         else:
             tf = s.get('today_overall_first')
             tl = s.get('today_overall_last')
@@ -824,8 +829,10 @@ def _adapt_app(data, keep=None):
             wh = round(wh, 2) if wh else 0
             # 兜底：源数据时间戳损坏（首末均为午夜、小时被截成0）导致工时=0，但确有扫码量 →
             # 按标准班次(7h，午休已扣)估算，避免"上班却显示0达成"的误导。真实工时需源头修正时间戳。
+            hours_estimated = False
             if wh == 0:
                 wh = 7.0
+                hours_estimated = True
 
         # UPPH：总处理量 / 效率时长
         upph = round(total / wh, 2) if wh > 0 and total > 0 else 0
@@ -847,11 +854,13 @@ def _adapt_app(data, keep=None):
 
         return {
             'name': name,
+            'emp_no': ri.get('employee_no', ''),     # 工号（来自花名册，姓名已归一化匹配）
             'emp_type': emp_type,
             'position': 'APP',                         # 岗位列只显示 APP
             'products': total,
             'device': wt,                             # 装跑类型
             'hours': wh,                             # 效率时长
+            'hours_estimated': hours_estimated,      # 工时是否为损坏时间戳兜底估算（⚠）
             'upph': upph,
             'standard': round(std, 2),
             'rate': rate,

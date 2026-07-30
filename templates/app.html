@@ -246,19 +246,21 @@
   <table class="app-table">
     <colgroup>
       <col style="width:10%">  <!-- 排名 -->
-      <col style="width:10%">  <!-- 姓名 -->
-      <col style="width:10%">  <!-- 类型 -->
-      <col style="width:10%">  <!-- 岗位 -->
-      <col style="width:10%">  <!-- 总处理量 -->
-      <col style="width:10%">  <!-- 装跑类型 -->
-      <col style="width:10%">  <!-- 效率时长 -->
-      <col style="width:10%">  <!-- UPPH -->
-      <col style="width:20%">  <!-- 效率达成 -->
+      <col style="width:9%">   <!-- 姓名 -->
+      <col style="width:9%">   <!-- 工号 -->
+      <col style="width:9%">   <!-- 类型 -->
+      <col style="width:9%">   <!-- 岗位 -->
+      <col style="width:9%">   <!-- 总处理量 -->
+      <col style="width:9%">   <!-- 装跑类型 -->
+      <col style="width:9%">   <!-- 效率时长 -->
+      <col style="width:9%">   <!-- UPPH -->
+      <col style="width:18%">  <!-- 效率达成 -->
     </colgroup>
     <thead>
       <tr>
         <th class="rank-col">排名</th>
         <th>姓名</th>
+        <th>工号</th>
         <th>类型</th>
         <th>岗位</th>
         <th>总处理量</th>
@@ -278,13 +280,14 @@
           {% else %}<span style="color:var(--text2);font-weight:600">{{ loop.index }}</span>{% endif %}
         </td>
         <td class="font-bold">{{ s.name }}</td>
+        <td style="font-size:13px;color:var(--text2)">{{ s.emp_no or '-' }}</td>
         <td><span class="{% if s.emp_type == '兼职' %}tag-parttime{% else %}tag-fulltime{% endif %}">{{ s.emp_type }}</span></td>
         <td><span class="tag-position">{{ s.position }}</span></td>
         <td style="font-weight:700">{{ fmt(s.products) }}</td>
         <td>
           <span class="dev-tag {% if s.device == '苹果' %}dev-apple{% elif s.device == '安卓+苹果' %}dev-both{% elif s.device == '无' %}dev-none{% else %}dev-android{% endif %}">{{ s.device }}</span>
         </td>
-        <td style="font-weight:700">{{ '%.2f'|format(s.hours) if s.hours else '-' }}</td>
+        <td style="font-weight:700">{{ '%.2f'|format(s.hours) if s.hours else '-' }}{% if s.hours_estimated %} <span title="源系统该人员扫码时间戳缺失(均为00:00:00)，工时按标准班次7h估算，需源头修正时间戳" style="color:#e65100;cursor:help">⚠</span>{% endif %}</td>
         <td class="font-bold">{{ s.upph }}</td>
         <td>
           <div class="achieve-cell">

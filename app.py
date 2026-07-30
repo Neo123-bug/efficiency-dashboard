@@ -703,6 +703,7 @@ def _load_roster_info():
                         'employee_type': s.get('employee_type', ''),
                         'c5': s.get('c5', ''),
                         'dept_group': s.get('dept_group', ''),
+                        'employee_no': s.get('employee_no', ''),
                     }
                     info[nm] = rec
                     info[nm.replace(' ', '')] = rec   # 去空格别名
@@ -927,7 +928,7 @@ def _adapt_app(data, keep=None):
             label = '%02d:00-%02d:00' % (hi, hi+1)
             hourly_data.append({
                 'name': name,
-                'emp_no': s.get('employee_no', ''),
+                'emp_no': ri2.get('employee_no', ''),
                 'cat': cat,
                 'hour_label': label,
                 'count': cnt,

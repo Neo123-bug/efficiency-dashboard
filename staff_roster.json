@@ -391,21 +391,6 @@
       "avatar_color": "#c2185b"
     },
     {
-      "employee_no": "152595",
-      "name": "徐世勇",
-      "employee_name": "徐世勇",
-      "position_tag": "xray",
-      "dept_group": "Xray",
-      "employee_type": "外包兼职",
-      "hire_date": "2025-10-24",
-      "c2": "北区",
-      "c3": "成都运作中心",
-      "c4": "质检辅助",
-      "c5": "APP一组",
-      "role_class": "rt-xray",
-      "avatar_color": "#6a1b9a"
-    },
-    {
       "employee_no": "153641",
       "name": "刘育彤",
       "employee_name": "刘育彤",
@@ -736,36 +721,6 @@
       "avatar_color": "#1565c0"
     },
     {
-      "employee_no": "157887",
-      "name": "冯馨语",
-      "employee_name": "冯馨语",
-      "position_tag": "哥斯拉",
-      "dept_group": "哥斯拉",
-      "employee_type": "外包兼职",
-      "hire_date": "2026-05-07",
-      "c2": "北区",
-      "c3": "成都运作中心",
-      "c4": "质检辅助",
-      "c5": "自动化支持",
-      "role_class": "rt-godzilla",
-      "avatar_color": "#f57f17"
-    },
-    {
-      "employee_no": "157888",
-      "name": "马子涵",
-      "employee_name": "马子涵",
-      "position_tag": "哥斯拉",
-      "dept_group": "哥斯拉",
-      "employee_type": "外包兼职",
-      "hire_date": "2026-05-07",
-      "c2": "北区",
-      "c3": "成都运作中心",
-      "c4": "质检辅助",
-      "c5": "自动化支持",
-      "role_class": "rt-godzilla",
-      "avatar_color": "#f57f17"
-    },
-    {
       "employee_no": "157892",
       "name": "唐智慧",
       "employee_name": "唐智慧",
@@ -901,21 +856,6 @@
       "avatar_color": "#f57f17"
     },
     {
-      "employee_no": "159177",
-      "name": "屈梅",
-      "employee_name": "屈梅",
-      "position_tag": "APP",
-      "dept_group": "APP",
-      "employee_type": "外包兼职",
-      "hire_date": "2026-06-11",
-      "c2": "北区",
-      "c3": "成都运作中心",
-      "c4": "质检辅助",
-      "c5": "APP一组",
-      "role_class": "rt-app",
-      "avatar_color": "#1565c0"
-    },
-    {
       "employee_no": "159181",
       "name": "李宇红",
       "employee_name": "李宇红",
@@ -1019,21 +959,6 @@
       "c5": "APP一组",
       "role_class": "rt-xray",
       "avatar_color": "#6a1b9a"
-    },
-    {
-      "employee_no": "159420",
-      "name": "王玉梅",
-      "employee_name": "王玉梅",
-      "position_tag": "APP",
-      "dept_group": "APP",
-      "employee_type": "外包兼职",
-      "hire_date": "2026-06-29",
-      "c2": "北区",
-      "c3": "成都运作中心",
-      "c4": "质检辅助",
-      "c5": "APP一组",
-      "role_class": "rt-app",
-      "avatar_color": "#1565c0"
     },
     {
       "employee_no": "159430",
@@ -1184,6 +1109,36 @@
       "c5": "APP一组",
       "role_class": "rt-xray",
       "avatar_color": "#6a1b9a"
+    },
+    {
+      "employee_no": "159704",
+      "name": "罗云佳",
+      "employee_name": "罗云佳",
+      "position_tag": "APP",
+      "dept_group": "APP",
+      "employee_type": "外包兼职",
+      "hire_date": "2026-07-22",
+      "c2": "北区",
+      "c3": "成都运作中心",
+      "c4": "质检辅助",
+      "c5": "APP一组",
+      "role_class": "rt-app",
+      "avatar_color": "#1565c0"
+    },
+    {
+      "employee_no": "159754",
+      "name": "李冰冰",
+      "employee_name": "李冰冰",
+      "position_tag": "充电移交",
+      "dept_group": "充电移交",
+      "employee_type": "外包兼职",
+      "hire_date": "2026-07-27",
+      "c2": "北区",
+      "c3": "成都运作中心",
+      "c4": "质检辅助",
+      "c5": "APP一组",
+      "role_class": "rt-charge",
+      "avatar_color": "#ad1457"
     }
   ],
   "groups": [
@@ -1193,7 +1148,7 @@
     },
     {
       "name": "APP",
-      "count": 26
+      "count": 25
     },
     {
       "name": "拍照",
@@ -1201,22 +1156,22 @@
     },
     {
       "name": "充电移交",
-      "count": 6
+      "count": 7
     },
     {
       "name": "哥斯拉",
-      "count": 21
-    },
-    {
-      "name": "Xray",
-      "count": 4
+      "count": 19
     },
     {
       "name": "魔镜",
       "count": 3
+    },
+    {
+      "name": "Xray",
+      "count": 3
     }
   ],
-  "total": 79,
-  "last_update": "2026-07-17 14:22:46",
+  "total": 76,
+  "last_update": "2026-07-30 12:22:42",
   "source": "飞书云文档·人员管理名单 (实时同步)"
 }

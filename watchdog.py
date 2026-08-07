@@ -36,18 +36,28 @@ def launch():
     )
 
 
+import time
+
+CHECK_INTERVAL = 60  # 每 60 秒探测一次
+
+
 def main():
-    try:
-        if not port_listening(PORT):
+    # 常驻循环：只要本进程在，8080 掉了就立刻拉起 app.py（自愈）
+    with open(LOG, "a", encoding="utf-8") as f:
+        f.write(f"[watchdog] 常驻看门狗启动 @ {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    while True:
+        try:
+            if not port_listening(PORT):
+                with open(LOG, "a", encoding="utf-8") as f:
+                    f.write(f"[watchdog] {time.strftime('%H:%M:%S')} 8080 未监听，拉起 app.py...\n")
+                launch()
+            else:
+                # 存活中，静默不刷日志
+                pass
+        except Exception as e:
             with open(LOG, "a", encoding="utf-8") as f:
-                f.write(f"[watchdog] 8080 not listening, launching app...\n")
-            launch()
-        else:
-            # 已存活，无需动作
-            pass
-    except Exception as e:
-        with open(LOG, "a", encoding="utf-8") as f:
-            f.write(f"[watchdog] ERROR: {e}\n")
+                f.write(f"[watchdog] ERROR: {e}\n")
+        time.sleep(CHECK_INTERVAL)
 
 
 if __name__ == "__main__":

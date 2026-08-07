@@ -26,21 +26,21 @@ def _run_lark_cli(args: List[str], timeout: int = 60) -> dict:
     env = os.environ.copy()
     # 确保 PATH 包含 node 等依赖
     env["PATH"] = os.path.dirname(LARK_CLI) + os.pathsep + env.get("PATH", "")
+    use_shell = LARK_CLI.endswith('.cmd')
     try:
         proc = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
             timeout=timeout,
             env=env,
-            shell=True if LARK_CLI.endswith('.cmd') else False,
+            shell=use_shell,
         )
+        # 关键修复：用字节读取后按 utf-8 容错解码，避免输出含非法字节时
+        # 子进程解码线程抛 UnicodeDecodeError 导致整次抓取失败
+        out = proc.stdout.decode("utf-8", "replace") if proc.stdout else ""
+        err = proc.stderr.decode("utf-8", "replace") if proc.stderr else ""
         # lark-cli 可能把结果输出到 stdout 或 stderr
-        out = proc.stdout or ""
-        err = proc.stderr or ""
-        # 尝试从 stdout/stderr 中解析 JSON
         text = out if out.strip().startswith("{") else err
         start = text.find("{")
         if start == -1:
@@ -48,7 +48,12 @@ def _run_lark_cli(args: List[str], timeout: int = 60) -> dict:
             return {}
         data = json.loads(text[start:])
         if not data.get("ok", True):
-            logger.warning(f"[lark-cli] 调用失败: {data.get('error')}")
+            # 不再静默吞错：明确记录授权/调用失败原因
+            err_obj = data.get("error", {})
+            logger.warning(
+                f"[lark-cli] 调用失败(type={err_obj.get('type')}, "
+                f"subtype={err_obj.get('subtype')}): {err_obj.get('message')}"
+            )
         return data
     except Exception as e:
         logger.error(f"[lark-cli] 调用异常: {e}")

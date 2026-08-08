@@ -1200,6 +1200,42 @@ def _perform_refresh_all():
     result = {'time': datetime.now().strftime('%H:%M:%S'), 'details': {}}
     errors = []
 
+    # === 飞书数据源优先刷新（放在最前，避免被慢外部源拖垮导致冻结）===
+    # A. 飞书三大区块（趋势 / 效率指标 / 质量指标）
+    try:
+        feishu_ok = True
+        try:
+            td = get_efficiency_trend(EFFICIENCY_TREND_CONFIG)
+            if td and td.get('dates'):
+                td['baseline'] = [round(v * 100, 2) if v is not None else None for v in td['baseline']]
+                td['current'] = [round(v * 100, 2) if v is not None else None for v in td['current']]
+                save_trend_cache(td, TREND_CACHE_PATH)
+        except Exception as e:
+            feishu_ok = False; app.logger.error(f'[自动刷新] 趋势失败: {e}')
+        try:
+            md = get_latest_metrics(EFFICIENCY_TREND_CONFIG)
+            if md and md.get('metrics'):
+                save_metric_cache(md, METRIC_CACHE_PATH)
+        except Exception as e:
+            feishu_ok = False; app.logger.error(f'[自动刷新] 效率指标失败: {e}')
+        try:
+            qd = get_quality_metrics_from_mail()
+            if qd and qd.get('items'):
+                save_quality_cache(qd, QUALITY_CACHE_PATH)
+        except Exception as e:
+            feishu_ok = False; app.logger.error(f'[自动刷新] 质量指标失败: {e}')
+        result['details']['feishu'] = {'ok': feishu_ok}
+    except Exception as e:
+        errors.append('feishu'); result['details']['feishu'] = {'error': str(e)}
+    # B. 飞书待办（多维表格）—— 纳入自动刷新，避免待办页数据源冻结
+    try:
+        items, err = _sync_feishu_todos(force=True)
+        result['details']['feishu_todo'] = {
+            'ok': err is None, 'count': len(items or []), 'error': err
+        }
+    except Exception as e:
+        errors.append('feishu_todo'); result['details']['feishu_todo'] = {'error': str(e)}
+
     # 1. 自动化(哥斯拉/魔镜/X光)
     try:
         r = api_automation_refresh()
@@ -1231,46 +1267,6 @@ def _perform_refresh_all():
         result['details']['app'] = j
     except Exception as e:
         errors.append('app'); result['details']['app'] = {'error': str(e)}
-
-    # 5. 飞书数据源（首页三大区块：趋势 / 效率指标 / 质量指标）
-    #    原先只有手动点「刷新」才会刷，现已并入自动全量刷新，首页也会每5分钟自动更新
-    try:
-        feishu_ok = True
-        # 5.1 趋势（近7天辅助效率达成）
-        try:
-            td = get_efficiency_trend(EFFICIENCY_TREND_CONFIG)
-            if td and td.get('dates'):
-                td['baseline'] = [round(v * 100, 2) if v is not None else None for v in td['baseline']]
-                td['current'] = [round(v * 100, 2) if v is not None else None for v in td['current']]
-                save_trend_cache(td, TREND_CACHE_PATH)
-        except Exception as e:
-            feishu_ok = False; app.logger.error(f'[自动刷新] 趋势失败: {e}')
-        # 5.2 效率指标（效率达成看板）
-        try:
-            md = get_latest_metrics(EFFICIENCY_TREND_CONFIG)
-            if md and md.get('metrics'):
-                save_metric_cache(md, METRIC_CACHE_PATH)
-        except Exception as e:
-            feishu_ok = False; app.logger.error(f'[自动刷新] 效率指标失败: {e}')
-        # 5.3 质量指标（邮件，每天一次）
-        try:
-            qd = get_quality_metrics_from_mail()
-            if qd and qd.get('items'):
-                save_quality_cache(qd, QUALITY_CACHE_PATH)
-        except Exception as e:
-            feishu_ok = False; app.logger.error(f'[自动刷新] 质量指标失败: {e}')
-        result['details']['feishu'] = {'ok': feishu_ok}
-    except Exception as e:
-        errors.append('feishu'); result['details']['feishu'] = {'error': str(e)}
-
-    # 6. 飞书待办（多维表格）—— 纳入自动刷新，避免待办页数据源冻结
-    try:
-        items, err = _sync_feishu_todos(force=True)
-        result['details']['feishu_todo'] = {
-            'ok': err is None, 'count': len(items or []), 'error': err
-        }
-    except Exception as e:
-        errors.append('feishu_todo'); result['details']['feishu_todo'] = {'error': str(e)}
 
     if errors:
         result['status'] = 'partial'

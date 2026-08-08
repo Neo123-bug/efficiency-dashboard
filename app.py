@@ -1263,6 +1263,15 @@ def _perform_refresh_all():
     except Exception as e:
         errors.append('feishu'); result['details']['feishu'] = {'error': str(e)}
 
+    # 6. 飞书待办（多维表格）—— 纳入自动刷新，避免待办页数据源冻结
+    try:
+        items, err = _sync_feishu_todos(force=True)
+        result['details']['feishu_todo'] = {
+            'ok': err is None, 'count': len(items or []), 'error': err
+        }
+    except Exception as e:
+        errors.append('feishu_todo'); result['details']['feishu_todo'] = {'error': str(e)}
+
     if errors:
         result['status'] = 'partial'
         result['message'] = '部分刷新失败: ' + '、'.join(errors)

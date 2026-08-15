@@ -1670,12 +1670,46 @@ def _parse_record_markdown(text):
     return out
 
 def _sync_feishu_todos(force=False):
-    """同步飞书待办到本地缓存。返回 (items, error)。items 为归一化字典列表。"""
+    """同步飞书待办到本地缓存。返回 (items, error)。items 为归一化字典列表。
+    优先 tenant_access_token（云端可用），失败回退本机 lark-cli。"""
     cache = _read_json(FEISHU_TODO_CACHE)
     if not force and cache.get('items') is not None:
         ts = cache.get('synced_at_ts', 0)
         if time.time() - ts < 300:  # 5 分钟内复用缓存
             return cache['items'], None
+
+    # —— tenant_access_token 路径（云端自洽）——
+    try:
+        import config
+        from services.feishu_todo_client import get_todo_records_tenant
+        cfg = FEISHU_TODO_BASE
+        app_id = config.EFFICIENCY_TREND_CONFIG['app_id']
+        app_secret = config.EFFICIENCY_TREND_CONFIG['app_secret']
+        rows = get_todo_records_tenant(
+            cfg['base_token'], cfg['table_id'], cfg.get('view_id'), app_id, app_secret)
+        items = [{
+            'id': 'feishu:' + r['rid'],
+            'rid': r['rid'],
+            'source': 'feishu',
+            'name': r['name'],
+            'executor': r['executor'],
+            'detail': r['detail'],
+            'deadline': (r['deadline'] or '')[:10],
+            'done': r['done'],
+            'priority': r['priority'],
+            'progress': r['progress'] or '',
+        } for r in rows]
+        _save_json(FEISHU_TODO_CACHE, {
+            'items': items,
+            'synced_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'synced_at_ts': int(time.time()),
+        })
+        logger.info(f"[待办] tenant 路径同步 {len(items)} 条")
+        return items, None
+    except Exception as e:
+        app.logger.warning(f"[待办] tenant 路径失败，回退 lark-cli: {e}")
+
+    # —— 回退：本机 lark-cli（用户授权）——
     text, err = _run_lark_record_list()
     if err:
         if cache.get('items') is not None:

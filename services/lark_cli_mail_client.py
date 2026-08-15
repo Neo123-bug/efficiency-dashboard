@@ -258,10 +258,10 @@ def _extract_reshoot_metrics(text: str, city: str = "成都") -> Dict[str, Dict]
     return result
 
 
-def get_quality_metrics_from_mail() -> Dict:
+def _quality_from_lark_cli() -> Dict:
     """
-    主入口：从飞书邮件中提取运营质量指标。
-    返回与 feishu_mail_client.get_quality_metrics 兼容的结构。
+    回退实现：从本机 lark-cli（用户授权）读取飞书邮件并解析运营质量指标。
+    当 tenant_access_token 路径不可用（未开通邮件权限/网络异常）时调用。
     """
     result = {
         "latest_date": "",
@@ -355,6 +355,101 @@ def get_quality_metrics_from_mail() -> Dict:
 
     logger.info(f"[邮件质量] 提取到 {len(result['items'])} 个指标")
     return result
+
+
+def get_quality_metrics_from_mail() -> Dict:
+    """
+    主入口（云端可用）：优先使用 tenant_access_token（应用身份）读取飞书邮件，
+    不再依赖本机 lark-cli 用户授权；解析复用本模块精确逻辑。
+    若应用未开通邮件权限 / 网络异常 / 无数据，自动回退到 lark-cli 实现。
+    """
+    # —— tenant_access_token 路径（云端自洽）——
+    try:
+        import config
+        from services.feishu_mail_tenant_client import (
+            FeishuMailTenantClient, strip_html, _get_mail_body,
+            _get_mail_subject, _get_mail_date,
+        )
+        cfg = getattr(config, 'QUALITY_MAIL_CONFIG', None)
+        if cfg and cfg.get('app_id') and cfg.get('app_secret'):
+            client = FeishuMailTenantClient(
+                cfg['app_id'], cfg['app_secret'], cfg.get('mailbox', '')
+            )
+            result = {
+                'latest_date': '',
+                'items': {},
+                'sources': {},
+                'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+            # 1. APP 执行/失误邮件
+            try:
+                app_mails = client.search_mails(
+                    cfg.get('app_mail_keyword', 'APP执行、失误'), limit=7)
+                if app_mails:
+                    latest = app_mails[0]
+                    body = strip_html(_get_mail_body(latest))
+                    parsed = _extract_app_metrics(body)
+                    for k, v in parsed.items():
+                        if v['latest'] is not None:
+                            result['items'][k] = v
+                    result['sources']['app_mail'] = _get_mail_subject(latest)
+                    d = _get_mail_date(latest)
+                    if d:
+                        result['latest_date'] = d
+                    if len(app_mails) > 1:
+                        sums = {'app_execution': [], 'app_coverage': [], 'app_error': []}
+                        for m in app_mails[:7]:
+                            p = _extract_app_metrics(strip_html(_get_mail_body(m)))
+                            for k in sums:
+                                if p[k]['latest'] is not None:
+                                    sums[k].append(p[k]['latest'])
+                        for k, vals in sums.items():
+                            if vals and k in result['items'] \
+                                    and result['items'][k].get('avg_7d') is None:
+                                result['items'][k]['avg_7d'] = round(sum(vals) / len(vals), 4)
+            except Exception as e:
+                logger.error(f"[邮件质量] tenant APP邮件失败: {e}", exc_info=True)
+
+            # 2. 重拍率邮件
+            try:
+                reshoot_mails = client.search_mails(
+                    cfg.get('reshoot_mail_keyword', '运中门店重拍率数据'), limit=7)
+                if reshoot_mails:
+                    latest = reshoot_mails[0]
+                    body = strip_html(_get_mail_body(latest))
+                    parsed = _extract_reshoot_metrics(body)
+                    for k, v in parsed.items():
+                        if v['latest'] is not None:
+                            result['items'][k] = v
+                    result['sources']['reshoot_mail'] = _get_mail_subject(latest)
+                    d = _get_mail_date(latest)
+                    if d and not result['latest_date']:
+                        result['latest_date'] = d
+                    if len(reshoot_mails) > 1:
+                        sums = {'godzilla_reshoot_rate': [], 'godzilla_reshoot_count': [],
+                                'reshoot_7d_rate': []}
+                        for m in reshoot_mails[:7]:
+                            p = _extract_reshoot_metrics(strip_html(_get_mail_body(m)))
+                            for k in sums:
+                                if p[k]['latest'] is not None:
+                                    sums[k].append(p[k]['latest'])
+                        for k, vals in sums.items():
+                            if vals and k in result['items'] \
+                                    and result['items'][k].get('avg_7d') is None:
+                                result['items'][k]['avg_7d'] = round(sum(vals) / len(vals), 4)
+            except Exception as e:
+                logger.error(f"[邮件质量] tenant 重拍率邮件失败: {e}", exc_info=True)
+
+            if result.get('items'):
+                logger.info(f"[邮件质量] tenant 路径提取到 {len(result['items'])} 个指标")
+                return result
+            logger.warning("[邮件质量] tenant 路径无数据，回退 lark-cli")
+    except Exception as e:
+        logger.warning(f"[邮件质量] tenant 路径异常，回退 lark-cli: {e}")
+
+    # —— 回退：本机 lark-cli（用户授权）——
+    return _quality_from_lark_cli()
 
 
 if __name__ == "__main__":

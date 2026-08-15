@@ -230,6 +230,20 @@ function getTypeLabel(val) {
   const t = getType(val);
   return t ? TYPE_LABELS[t] : '';
 }
+function buildDailyTooltip(day, ds, total, isApp) {
+  const lines = [`${day}日 周${getWeekday(day)} 出勤合计 ${total || 0}`, '──────────'];
+  if (isApp) {
+    if (ds.android) lines.push(`安卓 ${ds.android}`);
+    if (ds.apple) lines.push(`苹果 ${ds.apple}`);
+  } else {
+    if (ds.work) lines.push(`正常出勤 ${ds.work}`);
+  }
+  if (ds.support) lines.push(`支援 ${ds.support}`);
+  if (ds.leave) lines.push(`请假 ${ds.leave}`);
+  if (ds.rest) lines.push(`休息 ${ds.rest}`);
+  return lines.join('\n');
+}
+
 
 // 2026年8月每天是星期几
 function getWeekday(day) {
@@ -371,7 +385,7 @@ function avatarHtml(name, color, size) {
   return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${color};color:#fff;font-size:${Math.round(size*0.4)}px;font-weight:700;flex-shrink:0">${initial}</span>`;
 }
 
-// ============ Month View (Heatmap Cards) ============
+// ============ Month View (Grid-aligned heatmap) ============
 function renderMonthView() {
   const groups = scheduleData.groups;
   const todayDay = scheduleData.today_day;
@@ -381,99 +395,10 @@ function renderMonthView() {
     const visibleMembers = g.members.filter(m => shouldShowMember(m, g));
     if (visibleMembers.length === 0) return;
 
-    // Use the first member's position_color for the group header, or find the most common
     const groupColor = visibleMembers[0].position_color || '#888';
     const groupTag = visibleMembers[0].position_tag || g.name;
-
-    html += `<div class="card mb-16" style="overflow:hidden;overflow-x:auto">`;
-    // Group header
-    html += `<div style="display:flex;align-items:center;gap:10px;padding:12px 20px;background:${groupColor}15;border-left:4px solid ${groupColor};min-width:max-content">`;
-    html += `<span style="font-size:16px;font-weight:700;color:${groupColor}">${g.name}</span>`;
-    html += `<span style="font-size:12px;color:var(--text2);background:${groupColor}10;padding:2px 10px;border-radius:12px">${groupTag}</span>`;
-    html += `<span style="font-size:12px;color:var(--text2)">${visibleMembers.length}人</span>`;
-    html += `</div>`;
-
-    // Member rows
-    html += `<div style="padding:8px 20px;min-width:max-content">`;
-    visibleMembers.forEach(m => {
-      const color = m.position_color || groupColor;
-      const tag = m.position_tag || g.name;
-      const stats = m.stats || {};
-      const workDays = stats['出勤天数'] || '';
-      const restDays = stats['休息天数'] || '';
-      const otDays = stats['加班天数'] || '';
-
-      html += `<div class="sched-row" style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f0f0f0">`;
-      // Avatar + name (narrower to leave room for days)
-      html += `<div style="display:flex;align-items:center;gap:8px;min-width:110px;flex-shrink:0">`;
-      html += avatarHtml(m.name, color, 32);
-      html += `<div style="min-width:0;overflow:hidden">`;
-      html += `<div style="font-size:13px;font-weight:600;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>`;
-      html += `<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.id || '--'} · ${tag}</div>`;
-      html += `</div></div>`;
-
-      // Day heatmap: each day flexes to fill width
-      html += `<div style="display:flex;gap:3px;flex:1;min-width:0">`;
-      m.days.forEach((val, di) => {
-        const day = di + 1;
-        const t = getType(val);
-        const tc = t ? TYPE_COLORS[t] : '';
-        const isToday = day === todayDay;
-        const weekend = isWeekend(day);
-        let bg = tc || (weekend ? '#f3f4f6' : '#f9fafb');
-        let border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
-        let color = tc ? getContrastColor(tc) : (weekend ? '#6b7280' : '#9ca3af');
-        let displayVal = t ? (TYPE_SHORT[t] || val) : (val || '');
-        let title = `${day}日 周${getWeekday(day)}: ${val || '无排班'}`;
-        html += `<div title="${title}" style="flex:1;min-width:24px;height:30px;background:${bg};border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${color};cursor:default;overflow:hidden;white-space:nowrap">${displayVal}</div>`;
-      });
-      html += `</div>`;
-
-      // Stats badges
-      html += `<div style="display:flex;gap:6px;flex-shrink:0;min-width:90px;justify-content:flex-end">`;
-      if (workDays) html += `<span style="font-size:11px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-weight:700">勤${workDays}</span>`;
-      if (restDays) html += `<span style="font-size:11px;background:#f3f4f6;color:#4b5563;padding:2px 8px;border-radius:10px;font-weight:600">休${restDays}</span>`;
-      if (otDays) html += `<span style="font-size:11px;background:#ffedd5;color:#9a3412;padding:2px 8px;border-radius:10px;font-weight:700">加${otDays}</span>`;
-      html += `</div>`;
-      html += `</div>`;
-    });
-
-    // Daily headcount summary
-    if (g.daily_headcount && g.daily_headcount.some(v => v && v.trim())) {
-      html += `<div style="display:flex;align-items:center;gap:12px;padding:8px 0 12px;border-top:2px solid #f0f0f0;margin-top:4px;min-width:max-content">`;
-      html += `<div style="min-width:110px;flex-shrink:0;font-size:12px;font-weight:600;color:${groupColor}">📊 每日出勤</div>`;
-      html += `<div style="display:flex;gap:3px;flex:1;min-width:0">`;
-      g.daily_headcount.forEach((val, di) => {
-        const day = di + 1;
-        const isToday = day === todayDay;
-        let border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
-        html += `<div style="flex:1;min-width:24px;height:30px;background:#f3f4f6;border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${groupColor};overflow:hidden;white-space:nowrap">${val || ''}</div>`;
-      });
-      html += `</div><div style="min-width:90px"></div></div>`;
-    }
-
-    html += `</div></div>`;
-  });
-
-  document.getElementById('schedule-content').innerHTML = html;
-  document.getElementById('loading').style.display = 'none';
-}
-
-// ============ Week View ============
-function renderWeekView() {
-  updateNavLabel();
-  const groups = scheduleData.groups;
-  const todayDay = scheduleData.today_day;
-  const weekStart = getWeekStart(currentDay);
-  const days = [];
-  for (let d = weekStart; d <= Math.min(31, weekStart + 6); d++) days.push(d);
-  let html = '';
-
-  groups.forEach(g => {
-    const visibleMembers = g.members.filter(m => shouldShowMember(m, g));
-    if (visibleMembers.length === 0) return;
-    const groupColor = visibleMembers[0].position_color || '#888';
-    const groupTag = visibleMembers[0].position_tag || g.name;
+    const isApp = groupTag === 'APP';
+    const dailyStats = g.daily_stats || [];
 
     html += `<div class="card mb-16" style="overflow:hidden">`;
     html += `<div style="display:flex;align-items:center;gap:10px;padding:12px 20px;background:${groupColor}15;border-left:4px solid ${groupColor}">`;
@@ -482,72 +407,216 @@ function renderWeekView() {
     html += `<span style="font-size:12px;color:var(--text2)">${visibleMembers.length}人</span>`;
     html += `</div>`;
 
-    // Day header
-    html += `<div style="display:flex;align-items:center;padding:8px 20px;border-bottom:1px solid var(--border);background:#fafbfc">`;
-    html += `<div style="min-width:120px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--text2)">人员</div>`;
-    html += `<div style="display:flex;flex:1;gap:4px;min-width:0">`;
-    days.forEach(d => {
+    html += `<div style="padding:8px 20px 14px;overflow-x:auto">`;
+    html += `<div class="sched-grid-month">`;
+
+    // Header row
+    html += `<div class="sg-label sg-head" style="font-weight:700;color:var(--text2)">人员</div>`;
+    for (let d = 1; d <= 31; d++) {
       const weekend = isWeekend(d);
       const isToday = d === todayDay;
-      const bg = isToday ? '#fff3e0' : (weekend ? '#f0f0f0' : 'transparent');
-      html += `<div style="flex:1;text-align:center;padding:6px 4px;font-size:13px;font-weight:700;color:${weekend?'#9ca3af':'var(--text1)'};background:${bg};border-radius:6px;min-width:0;overflow:hidden;white-space:nowrap">${d}日 <span style="font-size:11px;color:#bbb">周${getWeekday(d)}</span></div>`;
-    });
-    html += `<div style="min-width:80px;text-align:center;font-size:12px;font-weight:700;color:var(--text2);flex-shrink:0">出勤</div>`;
-    html += `</div>`;
+      const bg = isToday ? '#fff3e0' : (weekend ? '#f3f4f6' : '#fafbfc');
+      const color = weekend ? '#9ca3af' : 'var(--text2)';
+      html += `<div class="sg-cell sg-head" style="background:${bg};color:${color}">${d}<span style="font-size:9px;display:block;margin-top:-2px">周${getWeekday(d)}</span></div>`;
+    }
+    html += `<div class="sg-stat sg-head" style="font-weight:700;color:var(--text2)">统计</div>`;
 
     // Member rows
-    html += `<div style="padding:4px 20px">`;
     visibleMembers.forEach(m => {
       const color = m.position_color || groupColor;
       const tag = m.position_tag || g.name;
       const stats = m.stats || {};
 
-      html += `<div class="sched-row" style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5">`;
-      html += `<div style="min-width:120px;flex-shrink:0;display:flex;align-items:center;gap:8px;min-width:0">`;
-      html += avatarHtml(m.name, color, 28);
+      html += `<div class="sg-label" style="display:flex;align-items:center;gap:8px;padding:6px 0">`;
+      html += avatarHtml(m.name, color, 30);
       html += `<div style="min-width:0;overflow:hidden">`;
-      html += `<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>`;
+      html += `<div style="font-size:13px;font-weight:600;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>`;
+      html += `<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.id || '--'} · ${tag}</div>`;
+      html += `</div></div>`;
+
+      m.days.forEach((val, di) => {
+        const day = di + 1;
+        const t = getType(val);
+        const tc = t ? TYPE_COLORS[t] : '';
+        const isToday = day === todayDay;
+        const weekend = isWeekend(day);
+        let bg = tc || (weekend ? '#f3f4f6' : '#f9fafb');
+        let border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
+        let txtColor = tc ? getContrastColor(tc) : (weekend ? '#6b7280' : '#9ca3af');
+        let displayVal = t ? (TYPE_SHORT[t] || val) : (val || '');
+        let title = `${day}日 周${getWeekday(day)}: ${val || '无排班'}`;
+        html += `<div title="${title}" class="sg-cell" style="background:${bg};border:${border};color:${txtColor}">${displayVal}</div>`;
+      });
+
+      html += `<div class="sg-stat" style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap">`;
+      if (stats['出勤天数']) html += `<span class="sg-badge sg-bg-work">勤${stats['出勤天数']}</span>`;
+      if (stats['休息天数']) html += `<span class="sg-badge sg-bg-rest">休${stats['休息天数']}</span>`;
+      if (stats['加班天数']) html += `<span class="sg-badge sg-bg-ot">加${stats['加班天数']}</span>`;
+      html += `</div>`;
+    });
+
+    // Daily total row
+    html += `<div class="sg-divider" style="grid-column:1 / -1;height:1px;background:#e5e7eb;margin:4px 0"></div>`;
+    html += `<div class="sg-label" style="font-weight:700;color:${groupColor};background:${groupColor}10;border-radius:6px">📊 出勤合计</div>`;
+    for (let di = 0; di < 31; di++) {
+      const day = di + 1;
+      const isToday = day === todayDay;
+      const ds = dailyStats[di] || {};
+      const total = ds.total || parseInt((g.daily_headcount || [])[di]) || 0;
+      const border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
+      const title = buildDailyTooltip(day, ds, total, isApp);
+      html += `<div title="${title}" class="sg-cell" style="background:${groupColor}10;border:${border};color:${groupColor};font-size:13px;font-weight:800">${total || ''}</div>`;
+    }
+    html += `<div class="sg-stat"></div>`;
+
+    // Detail rows
+    const detailRow = (label, key, color, bg) => {
+      html += `<div class="sg-label" style="font-size:11px;font-weight:700;color:${color};background:${bg};border-radius:6px">${label}</div>`;
+      for (let di = 0; di < 31; di++) {
+        const day = di + 1;
+        const isToday = day === todayDay;
+        const ds = dailyStats[di] || {};
+        const v = ds[key] || 0;
+        const border = isToday ? '2px solid #f59e0b' : '1px solid transparent';
+        const title = `${day}日 ${label}: ${v}`;
+        html += `<div title="${title}" class="sg-cell" style="background:${bg};border:${border};color:${color};font-size:11px;font-weight:700">${v || ''}</div>`;
+      }
+      html += `<div class="sg-stat"></div>`;
+    };
+
+    if (isApp) {
+      detailRow('安卓', 'android', '#166534', '#dcfce7');
+      detailRow('苹果', 'apple', '#1e40af', '#dbeafe');
+    } else {
+      detailRow('正常出勤', 'work', '#166534', '#dcfce7');
+    }
+    detailRow('休息', 'rest', '#4b5563', '#f3f4f6');
+    detailRow('请假', 'leave', '#b91c1c', '#fee2e2');
+    detailRow('支援', 'support', '#1d4ed8', '#dbeafe');
+
+    html += `</div></div></div>`;
+  });
+
+  document.getElementById('schedule-content').innerHTML = html;
+  document.getElementById('loading').style.display = 'none';
+}
+
+
+// ============ Week View (Grid-aligned) ============
+function renderWeekView() {
+  updateNavLabel();
+  const groups = scheduleData.groups;
+  const todayDay = scheduleData.today_day;
+  const weekStart = getWeekStart(currentDay);
+  const days = [];
+  for (let d = weekStart; d <= Math.min(31, weekStart + 6); d++) days.push(d);
+  const colCount = days.length;
+  let html = '';
+
+  groups.forEach(g => {
+    const visibleMembers = g.members.filter(m => shouldShowMember(m, g));
+    if (visibleMembers.length === 0) return;
+    const groupColor = visibleMembers[0].position_color || '#888';
+    const groupTag = visibleMembers[0].position_tag || g.name;
+    const isApp = groupTag === 'APP';
+    const dailyStats = g.daily_stats || [];
+
+    html += `<div class="card mb-16" style="overflow:hidden">`;
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:12px 20px;background:${groupColor}15;border-left:4px solid ${groupColor}">`;
+    html += `<span style="font-size:16px;font-weight:700;color:${groupColor}">${g.name}</span>`;
+    html += `<span style="font-size:12px;color:var(--text2);background:${groupColor}10;padding:2px 10px;border-radius:12px">${groupTag}</span>`;
+    html += `<span style="font-size:12px;color:var(--text2)">${visibleMembers.length}人</span>`;
+    html += `</div>`;
+
+    html += `<div style="padding:8px 20px 14px;overflow-x:auto">`;
+    html += `<div class="sched-grid-week" style="grid-template-columns:120px repeat(${colCount}, minmax(60px, 1fr)) 80px">`;
+
+    // Header
+    html += `<div class="sg-label sg-head" style="font-weight:700;color:var(--text2)">人员</div>`;
+    days.forEach(d => {
+      const weekend = isWeekend(d);
+      const isToday = d === todayDay;
+      const bg = isToday ? '#fff3e0' : (weekend ? '#f3f4f6' : '#fafbfc');
+      const color = weekend ? '#9ca3af' : 'var(--text2)';
+      html += `<div class="sg-cell sg-head" style="background:${bg};color:${color}">${d}日 <span style="font-size:10px">周${getWeekday(d)}</span></div>`;
+    });
+    html += `<div class="sg-stat sg-head" style="font-weight:700;color:var(--text2)">出勤</div>`;
+
+    // Members
+    visibleMembers.forEach(m => {
+      const color = m.position_color || groupColor;
+      const tag = m.position_tag || g.name;
+      const stats = m.stats || {};
+
+      html += `<div class="sg-label" style="display:flex;align-items:center;gap:8px;padding:6px 0">`;
+      html += avatarHtml(m.name, color, 30);
+      html += `<div style="min-width:0;overflow:hidden">`;
+      html += `<div style="font-size:13px;font-weight:600;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>`;
       html += `<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tag}</div>`;
       html += `</div></div>`;
 
-      html += `<div style="display:flex;flex:1;gap:4px;min-width:0">`;
       days.forEach(d => {
         const val = m.days[d-1] || '';
         const t = getType(val);
         const tc = t ? TYPE_COLORS[t] : '';
         const isToday = d === todayDay;
         const weekend = isWeekend(d);
-        let bg = tc || (weekend ? '#f3f4f6' : '#fff');
-        let border = isToday ? '2px solid var(--orange)' : '1px solid #e5e7eb';
-        let color = tc ? getContrastColor(tc) : (weekend ? '#6b7280' : '#374151');
-        html += `<div style="flex:1;text-align:center;padding:8px 4px;background:${bg};border:${border};border-radius:6px;font-size:13px;font-weight:800;color:${color};min-height:34px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;white-space:nowrap">${val}</div>`;
+        let bg = tc || (weekend ? '#f3f4f6' : '#f9fafb');
+        let border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
+        let txtColor = tc ? getContrastColor(tc) : (weekend ? '#6b7280' : '#374151');
+        let title = `${d}日 周${getWeekday(d)}: ${val || '无排班'}`;
+        html += `<div title="${title}" class="sg-cell" style="background:${bg};border:${border};color:${txtColor}">${val}</div>`;
       });
-      html += `</div>`;
 
-      html += `<div style="min-width:80px;text-align:center;font-size:14px;font-weight:800;color:#15803d;flex-shrink:0">${stats['出勤天数'] || '--'}</div>`;
+      html += `<div class="sg-stat" style="display:flex;justify-content:center;align-items:center">`;
+      html += `<span style="font-size:14px;font-weight:800;color:#15803d">${stats['出勤天数'] || '--'}</span>`;
       html += `</div>`;
     });
 
-    // Daily headcount
-    if (g.daily_headcount && g.daily_headcount.some(v => v && v.trim())) {
-      html += `<div style="display:flex;align-items:center;padding:6px 0;border-top:2px solid #f0f0f0;margin-top:4px">`;
-      html += `<div style="min-width:120px;flex-shrink:0;font-size:12px;font-weight:600;color:${groupColor}">📊 出勤人数</div>`;
-      html += `<div style="display:flex;flex:1;gap:4px;min-width:0">`;
-      days.forEach(d => {
-        const val = g.daily_headcount[d-1] || '';
-        const isToday = d === todayDay;
-        let border = isToday ? '2px solid var(--orange)' : '1px solid #eee';
-        html += `<div style="flex:1;text-align:center;padding:8px 4px;background:#f3f4f6;border:${border};border-radius:6px;font-size:13px;font-weight:800;color:${groupColor};min-width:0;overflow:hidden;white-space:nowrap">${val}</div>`;
-      });
-      html += `</div><div style="min-width:80px"></div></div>`;
-    }
+    // Daily total
+    html += `<div class="sg-divider" style="grid-column:1 / -1;height:1px;background:#e5e7eb;margin:4px 0"></div>`;
+    html += `<div class="sg-label" style="font-weight:700;color:${groupColor};background:${groupColor}10;border-radius:6px">📊 出勤合计</div>`;
+    days.forEach(d => {
+      const ds = dailyStats[d-1] || {};
+      const total = ds.total || parseInt((g.daily_headcount || [])[d-1]) || 0;
+      const isToday = d === todayDay;
+      const border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
+      const title = buildDailyTooltip(d, ds, total, isApp);
+      html += `<div title="${title}" class="sg-cell" style="background:${groupColor}10;border:${border};color:${groupColor};font-size:14px;font-weight:800">${total || ''}</div>`;
+    });
+    html += `<div class="sg-stat"></div>`;
 
-    html += `</div></div>`;
+    // Detail rows
+    const detailRow = (label, key, color, bg) => {
+      html += `<div class="sg-label" style="font-size:11px;font-weight:700;color:${color};background:${bg};border-radius:6px">${label}</div>`;
+      days.forEach(d => {
+        const ds = dailyStats[d-1] || {};
+        const v = ds[key] || 0;
+        const isToday = d === todayDay;
+        const border = isToday ? '2px solid #f59e0b' : '1px solid transparent';
+        const title = `${d}日 ${label}: ${v}`;
+        html += `<div title="${title}" class="sg-cell" style="background:${bg};border:${border};color:${color};font-size:12px;font-weight:700">${v || ''}</div>`;
+      });
+      html += `<div class="sg-stat"></div>`;
+    };
+
+    if (isApp) {
+      detailRow('安卓', 'android', '#166534', '#dcfce7');
+      detailRow('苹果', 'apple', '#1e40af', '#dbeafe');
+    } else {
+      detailRow('正常出勤', 'work', '#166534', '#dcfce7');
+    }
+    detailRow('休息', 'rest', '#4b5563', '#f3f4f6');
+    detailRow('请假', 'leave', '#b91c1c', '#fee2e2');
+    detailRow('支援', 'support', '#1d4ed8', '#dbeafe');
+
+    html += `</div></div></div>`;
   });
 
   document.getElementById('schedule-content').innerHTML = html;
   document.getElementById('loading').style.display = 'none';
 }
+
 
 // ============ Day View ============
 function renderDayView() {
@@ -724,6 +793,60 @@ loadSchedule();
 .sched-row:hover {
   background: #f8f9ff !important;
 }
+
+/* Schedule grid layouts for strict alignment */
+.sched-grid-month,
+.sched-grid-week {
+  display: grid;
+  gap: 3px;
+  align-items: center;
+  min-width: max-content;
+}
+.sched-grid-month {
+  grid-template-columns: 110px repeat(31, minmax(24px, 1fr)) 90px;
+}
+.sched-grid-week {
+  grid-template-columns: 120px repeat(7, minmax(60px, 1fr)) 80px;
+}
+.sg-label {
+  min-width: 0;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+}
+.sg-cell {
+  min-height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 2px;
+}
+.sg-stat {
+  min-width: 0;
+}
+.sg-head {
+  min-height: 28px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.sg-badge {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sg-bg-work { background: #dcfce7; color: #166534; }
+.sg-bg-rest { background: #f3f4f6; color: #4b5563; }
+.sg-bg-ot   { background: #ffedd5; color: #9a3412; }
 </style>
 {% endblock %}
 

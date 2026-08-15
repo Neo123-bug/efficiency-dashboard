@@ -59,6 +59,73 @@ TYPE_COLORS = {
 }
 
 
+def _classify_shift(val: str, is_app_group: bool = False) -> str:
+    """
+    将单个排班值归类。
+    规则：
+      1/出勤 = 正常出勤；假/请假 = 请假；休/休息 = 休息；支援 = 支援；
+      苹/苹果 = APP 跑苹果；其余 APP 岗位出勤 = 安卓。
+    返回：'work' | 'apple' | 'android' | 'rest' | 'leave' | 'support' | 'empty' | 'other'
+    """
+    v = str(val).strip() if val else ""
+    if not v:
+        return "empty"
+    if v in ("假", "请假"):
+        return "leave"
+    if v in ("休", "休息"):
+        return "rest"
+    if v == "支援":
+        return "support"
+    if v in ("苹", "苹果"):
+        return "apple"
+    if is_app_group and v in ("1", "出勤", "出"):
+        return "android"
+    # 其他工作类值（魔镜/充电/X光/分流/非APP的出勤等）
+    return "work"
+
+
+def _is_app_group(g: dict) -> bool:
+    """判断该组是否属于 APP 岗位（需要区分苹果/安卓）"""
+    tag = GROUP_TO_POSITION_TAG.get(g.get("name", ""), "")
+    if tag == "APP":
+        return True
+    # 兜底：如果组名是 App 或 分流
+    if g.get("name") in ("App", "分流"):
+        return True
+    return False
+
+
+def _compute_daily_stats(groups: List[Dict]) -> List[Dict]:
+    """为每个组计算每天的人员构成统计"""
+    for g in groups:
+        is_app = _is_app_group(g)
+        members = g.get("members", [])
+        daily_stats = []
+        for day_idx in range(31):
+            stat = {
+                "day": day_idx + 1,
+                "work": 0,
+                "apple": 0,
+                "android": 0,
+                "rest": 0,
+                "leave": 0,
+                "support": 0,
+                "other": 0,
+                "empty": 0,
+            }
+            for m in members:
+                days = m.get("days", [])
+                if day_idx >= len(days):
+                    continue
+                cls = _classify_shift(days[day_idx], is_app)
+                if cls in stat:
+                    stat[cls] += 1
+            stat["total"] = stat["work"] + stat["apple"] + stat["android"] + stat["support"]
+            daily_stats.append(stat)
+        g["daily_stats"] = daily_stats
+    return groups
+
+
 def _build_env():
     """构建包含 node 路径的子进程环境"""
     env = os.environ.copy()
@@ -475,6 +542,9 @@ def fetch_schedule_data() -> dict:
 
     # 用花名册补全岗位信息
     all_groups = _enrich_with_roster(all_groups)
+
+    # 计算每个岗位每日出勤分类统计
+    all_groups = _compute_daily_stats(all_groups)
 
     # 统计总人数
     total_people = sum(len(g["members"]) for g in all_groups)

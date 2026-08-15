@@ -408,6 +408,9 @@ def _parse_doc2(csv_str: str) -> List[Dict]:
 
         if not name:
             continue
+        # 跳过异常/汇总行：姓名为纯数字（如工号被错放到姓名列的汇总行）
+        if re.match(r"^\d+$", name):
+            continue
 
         # Day1-31 在 E-AI 列 (index 4-34)
         days = []

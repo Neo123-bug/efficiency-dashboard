@@ -230,18 +230,10 @@ function getTypeLabel(val) {
   const t = getType(val);
   return t ? TYPE_LABELS[t] : '';
 }
-function buildDailyTooltip(day, ds, total, isApp) {
-  const lines = [`${day}日 周${getWeekday(day)} 出勤合计 ${total || 0}`, '──────────'];
-  if (isApp) {
-    if (ds.android) lines.push(`安卓 ${ds.android}`);
-    if (ds.apple) lines.push(`苹果 ${ds.apple}`);
-  } else {
-    if (ds.work) lines.push(`正常出勤 ${ds.work}`);
-  }
-  if (ds.support) lines.push(`支援 ${ds.support}`);
-  if (ds.leave) lines.push(`请假 ${ds.leave}`);
-  if (ds.rest) lines.push(`休息 ${ds.rest}`);
-  return lines.join('\n');
+function buildDailyTooltip(day, ds) {
+  const total = ds.total || 0;
+  const capacity = ds.capacity || 0;
+  return `${day}日 周${getWeekday(day)}\\n出勤人数 ${total}\\n每日产能 ${capacity || '--'}`;
 }
 
 
@@ -419,7 +411,7 @@ function renderMonthView() {
       const color = weekend ? '#9ca3af' : 'var(--text2)';
       html += `<div class="sg-cell sg-head" style="background:${bg};color:${color}">${d}<span style="font-size:9px;display:block;margin-top:-2px">周${getWeekday(d)}</span></div>`;
     }
-    html += `<div class="sg-stat sg-head" style="font-weight:700;color:var(--text2)">统计</div>`;
+    html += `<div class="sg-stat sg-head" style="font-weight:700;color:var(--text2)">产能</div>`;
 
     // Member rows
     visibleMembers.forEach(m => {
@@ -449,50 +441,41 @@ function renderMonthView() {
       });
 
       html += `<div class="sg-stat" style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap">`;
-      if (stats['出勤天数']) html += `<span class="sg-badge sg-bg-work">勤${stats['出勤天数']}</span>`;
-      if (stats['休息天数']) html += `<span class="sg-badge sg-bg-rest">休${stats['休息天数']}</span>`;
-      if (stats['加班天数']) html += `<span class="sg-badge sg-bg-ot">加${stats['加班天数']}</span>`;
+      const capacityVal = stats['产能'];
+      if (capacityVal !== undefined && capacityVal !== '') {
+        html += `<span class="sg-badge" style="background:${groupColor}20;color:${groupColor}">产${capacityVal}</span>`;
+      } else {
+        html += `<span class="sg-badge" style="background:#f3f4f6;color:#9ca3af">产--</span>`;
+      }
       html += `</div>`;
     });
 
     // Daily total row
     html += `<div class="sg-divider" style="grid-column:1 / -1;height:1px;background:#e5e7eb;margin:4px 0"></div>`;
-    html += `<div class="sg-label" style="font-weight:700;color:${groupColor};background:${groupColor}10;border-radius:6px">📊 出勤合计</div>`;
+    html += `<div class="sg-label" style="font-weight:700;color:${groupColor};background:${groupColor}10;border-radius:6px">📊 出勤人数</div>`;
     for (let di = 0; di < 31; di++) {
       const day = di + 1;
       const isToday = day === todayDay;
       const ds = dailyStats[di] || {};
-      const total = ds.total || parseInt((g.daily_headcount || [])[di]) || 0;
+      const total = ds.total || 0;
       const border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
-      const title = buildDailyTooltip(day, ds, total, isApp);
+      const title = buildDailyTooltip(day, ds);
       html += `<div title="${title}" class="sg-cell" style="background:${groupColor}10;border:${border};color:${groupColor};font-size:13px;font-weight:800">${total || ''}</div>`;
     }
     html += `<div class="sg-stat"></div>`;
 
-    // Detail rows
-    const detailRow = (label, key, color, bg) => {
-      html += `<div class="sg-label" style="font-size:11px;font-weight:700;color:${color};background:${bg};border-radius:6px">${label}</div>`;
-      for (let di = 0; di < 31; di++) {
-        const day = di + 1;
-        const isToday = day === todayDay;
-        const ds = dailyStats[di] || {};
-        const v = ds[key] || 0;
-        const border = isToday ? '2px solid #f59e0b' : '1px solid transparent';
-        const title = `${day}日 ${label}: ${v}`;
-        html += `<div title="${title}" class="sg-cell" style="background:${bg};border:${border};color:${color};font-size:11px;font-weight:700">${v || ''}</div>`;
-      }
-      html += `<div class="sg-stat"></div>`;
-    };
-
-    if (isApp) {
-      detailRow('安卓', 'android', '#166534', '#dcfce7');
-      detailRow('苹果', 'apple', '#1e40af', '#dbeafe');
-    } else {
-      detailRow('正常出勤', 'work', '#166534', '#dcfce7');
+    // Daily capacity row
+    html += `<div class="sg-label" style="font-weight:700;color:#9a3412;background:#fff7ed;border-radius:6px">⚡ 每日产能</div>`;
+    for (let di = 0; di < 31; di++) {
+      const day = di + 1;
+      const isToday = day === todayDay;
+      const ds = dailyStats[di] || {};
+      const capacity = ds.capacity;
+      const border = isToday ? '2px solid #f59e0b' : '1px solid #fed7aa';
+      const title = `${day}日 每日产能: ${capacity !== null && capacity !== undefined ? capacity : '--'}`;
+      html += `<div title="${title}" class="sg-cell" style="background:#fff7ed;border:${border};color:#9a3412;font-size:13px;font-weight:800">${capacity !== null && capacity !== undefined ? capacity : '--'}</div>`;
     }
-    detailRow('休息', 'rest', '#4b5563', '#f3f4f6');
-    detailRow('请假', 'leave', '#b91c1c', '#fee2e2');
-    detailRow('支援', 'support', '#1d4ed8', '#dbeafe');
+    html += `<div class="sg-stat"></div>`;
 
     html += `</div></div></div>`;
   });
@@ -540,7 +523,7 @@ function renderWeekView() {
       const color = weekend ? '#9ca3af' : 'var(--text2)';
       html += `<div class="sg-cell sg-head" style="background:${bg};color:${color}">${d}日 <span style="font-size:10px">周${getWeekday(d)}</span></div>`;
     });
-    html += `<div class="sg-stat sg-head" style="font-weight:700;color:var(--text2)">出勤</div>`;
+    html += `<div class="sg-stat sg-head" style="font-weight:700;color:var(--text2)">产能</div>`;
 
     // Members
     visibleMembers.forEach(m => {
@@ -569,46 +552,39 @@ function renderWeekView() {
       });
 
       html += `<div class="sg-stat" style="display:flex;justify-content:center;align-items:center">`;
-      html += `<span style="font-size:14px;font-weight:800;color:#15803d">${stats['出勤天数'] || '--'}</span>`;
+      const wkCapacity = stats['产能'];
+      if (wkCapacity !== undefined && wkCapacity !== '') {
+        html += `<span style="font-size:13px;font-weight:800;color:${groupColor}">产${wkCapacity}</span>`;
+      } else {
+        html += `<span style="font-size:13px;font-weight:700;color:#9ca3af">--</span>`;
+      }
       html += `</div>`;
     });
 
     // Daily total
     html += `<div class="sg-divider" style="grid-column:1 / -1;height:1px;background:#e5e7eb;margin:4px 0"></div>`;
-    html += `<div class="sg-label" style="font-weight:700;color:${groupColor};background:${groupColor}10;border-radius:6px">📊 出勤合计</div>`;
+    html += `<div class="sg-label" style="font-weight:700;color:${groupColor};background:${groupColor}10;border-radius:6px">📊 出勤人数</div>`;
     days.forEach(d => {
       const ds = dailyStats[d-1] || {};
-      const total = ds.total || parseInt((g.daily_headcount || [])[d-1]) || 0;
+      const total = ds.total || 0;
       const isToday = d === todayDay;
       const border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
-      const title = buildDailyTooltip(d, ds, total, isApp);
+      const title = buildDailyTooltip(d, ds);
       html += `<div title="${title}" class="sg-cell" style="background:${groupColor}10;border:${border};color:${groupColor};font-size:14px;font-weight:800">${total || ''}</div>`;
     });
     html += `<div class="sg-stat"></div>`;
 
-    // Detail rows
-    const detailRow = (label, key, color, bg) => {
-      html += `<div class="sg-label" style="font-size:11px;font-weight:700;color:${color};background:${bg};border-radius:6px">${label}</div>`;
-      days.forEach(d => {
-        const ds = dailyStats[d-1] || {};
-        const v = ds[key] || 0;
-        const isToday = d === todayDay;
-        const border = isToday ? '2px solid #f59e0b' : '1px solid transparent';
-        const title = `${d}日 ${label}: ${v}`;
-        html += `<div title="${title}" class="sg-cell" style="background:${bg};border:${border};color:${color};font-size:12px;font-weight:700">${v || ''}</div>`;
-      });
-      html += `<div class="sg-stat"></div>`;
-    };
-
-    if (isApp) {
-      detailRow('安卓', 'android', '#166534', '#dcfce7');
-      detailRow('苹果', 'apple', '#1e40af', '#dbeafe');
-    } else {
-      detailRow('正常出勤', 'work', '#166534', '#dcfce7');
-    }
-    detailRow('休息', 'rest', '#4b5563', '#f3f4f6');
-    detailRow('请假', 'leave', '#b91c1c', '#fee2e2');
-    detailRow('支援', 'support', '#1d4ed8', '#dbeafe');
+    // Daily capacity row
+    html += `<div class="sg-label" style="font-weight:700;color:#9a3412;background:#fff7ed;border-radius:6px">⚡ 每日产能</div>`;
+    days.forEach(d => {
+      const ds = dailyStats[d-1] || {};
+      const capacity = ds.capacity;
+      const isToday = d === todayDay;
+      const border = isToday ? '2px solid #f59e0b' : '1px solid #fed7aa';
+      const title = `${d}日 每日产能: ${capacity !== null && capacity !== undefined ? capacity : '--'}`;
+      html += `<div title="${title}" class="sg-cell" style="background:#fff7ed;border:${border};color:#9a3412;font-size:14px;font-weight:800">${capacity !== null && capacity !== undefined ? capacity : '--'}</div>`;
+    });
+    html += `<div class="sg-stat"></div>`;
 
     html += `</div></div></div>`;
   });

@@ -95,33 +95,56 @@ def _is_app_group(g: dict) -> bool:
     return False
 
 
+def _is_work_shift(val: str) -> bool:
+    """判断是否为出勤类排班（计入出勤人数）"""
+    v = str(val).strip() if val else ""
+    if not v:
+        return False
+    if v in ("休", "休息", "假", "请假"):
+        return False
+    return True
+
+
 def _compute_daily_stats(groups: List[Dict]) -> List[Dict]:
-    """为每个组计算每天的人员构成统计"""
+    """
+    为每个组计算每天的出勤人数和产能。
+    - total: 当天出勤总人数（非休息/请假）
+    - capacity: 当天出勤人员产能之和；优先使用文档里的每日产能汇总行，
+                没有汇总行时尝试用成员个人产能列（doc1 的 stats['产能']）估算。
+    """
     for g in groups:
-        is_app = _is_app_group(g)
         members = g.get("members", [])
+        daily_headcount = g.get("daily_headcount", [])
+        daily_capacity = g.get("daily_capacity", [])
         daily_stats = []
+
         for day_idx in range(31):
-            stat = {
-                "day": day_idx + 1,
-                "work": 0,
-                "apple": 0,
-                "android": 0,
-                "rest": 0,
-                "leave": 0,
-                "support": 0,
-                "other": 0,
-                "empty": 0,
-            }
-            for m in members:
-                days = m.get("days", [])
-                if day_idx >= len(days):
-                    continue
-                cls = _classify_shift(days[day_idx], is_app)
-                if cls in stat:
-                    stat[cls] += 1
-            stat["total"] = stat["work"] + stat["apple"] + stat["android"] + stat["support"]
-            daily_stats.append(stat)
+            day = day_idx + 1
+            # 出勤人数：优先用文档汇总行，否则按工作状态统计
+            total = 0
+            if day_idx < len(daily_headcount) and daily_headcount[day_idx]:
+                try:
+                    total = int(daily_headcount[day_idx])
+                except (ValueError, TypeError):
+                    total = 0
+            if total == 0:
+                for m in members:
+                    days = m.get("days", [])
+                    if day_idx >= len(days):
+                        continue
+                    if _is_work_shift(days[day_idx]):
+                        total += 1
+
+            # 每日产能：优先用文档汇总行
+            capacity = None
+            if day_idx < len(daily_capacity) and daily_capacity[day_idx]:
+                try:
+                    capacity = int(float(daily_capacity[day_idx]))
+                except (ValueError, TypeError):
+                    capacity = None
+
+            daily_stats.append({"day": day, "total": total, "capacity": capacity})
+
         g["daily_stats"] = daily_stats
     return groups
 

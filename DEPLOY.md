@@ -20,6 +20,9 @@
   4. Start Command: `python app.py`
   5. 端口填 `8080`
   6. 部署完成后获得 `https://xxx.onrender.com` 公网地址
+  - **省事做法（推荐）**：浏览器直接打开 👉 `https://render.com/deploy?repo=https://github.com/Neo123-bug/efficiency-dashboard`
+    会自动带好仓库，并套用仓库里 `render.yaml` 预填的构建/启动命令、区域（Singapore）、计划（Free），跳过控制台导航。
+  - 注册 / GitHub 授权若遇白屏或 404：手动开 `https://dashboard.render.com`，或用**无痕窗口**重走 GitHub 授权（多半是登录态串了）。
 
 ### 2. Railway.app（免费 $5 额度，常驻不休眠）
 - 关联 GitHub 仓库 → Deploy → 自动识别 Procfile
@@ -95,4 +98,26 @@ python app.py
    - 否则云端读待办会返回 `91403 Forbidden`，自动刷新不到（页面显示空待办）。
 
 > 若暂不打算开这两处权限，云端部署后：趋势/效率/业务数据正常刷新，飞书质量指标与待办保持空（本机仍可用 lark-cli 回退）。
-```
+
+---
+
+## 部署后安全收尾（建议做）
+
+部署成功后，去 GitHub → 头像 → **Settings** → **Developer settings** → **Personal access tokens**，把用于推送代码的令牌 **Revoke** 掉。代码已推完，令牌留着有泄露风险；以后改代码重新生成一把即可。
+
+---
+
+## 常见问题
+
+**Q：部署后页面打不开 / 数据空白？**
+A：先看 Render 日志有没有报错。多半是 7 个环境变量漏填或填错（尤其 `WATCHER_SESSION` 的值**开头就带 `SESSION=`** 这 7 个字母，别漏）。
+
+**Q：改了代码，云端多久更新？**
+A：重新 push 到 GitHub，Render 自动重新部署（约 2~5 分钟）。
+
+**Q：SESSION 会不会过期？**
+A：源系统登录凭证可能定期失效，失效后对应数据会变空 / 报错。届时重新生成凭证、在 Render 环境变量里更新即可（告诉我，我帮你查新值）。
+
+**Q：可以让 Agent 代劳部署吗？**
+A：可以。你去 render.com 用邮箱注册（这步只能你做），进 **Account Settings → API Keys** 生成一把 `rnd_xxx` 发我，剩下的创建服务、填密钥、触发部署我用 Render API 帮你跑完。
+

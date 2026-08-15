@@ -24,8 +24,9 @@ def _run_lark_cli(args: List[str], timeout: int = 60) -> dict:
     """调用 lark-cli 并返回 JSON 结果"""
     cmd = [LARK_CLI] + args
     env = os.environ.copy()
-    # 确保 PATH 包含 node 等依赖
-    env["PATH"] = os.path.dirname(LARK_CLI) + os.pathsep + env.get("PATH", "")
+    # 确保 PATH 包含 node.exe（lark-cli.cmd 内部调 node，但 node.exe 在 versions/ 下而非 cli-connector-packages/ 下）
+    _node_dir = r"C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2"
+    env["PATH"] = _node_dir + os.pathsep + os.path.dirname(LARK_CLI) + os.pathsep + env.get("PATH", "")
     use_shell = LARK_CLI.endswith('.cmd')
     try:
         proc = subprocess.run(

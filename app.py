@@ -1603,7 +1603,11 @@ def _run_lark_record_list():
         '--as', 'user',
     ]
     try:
-        r = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=90)
+        env = os.environ.copy()
+        _node_dir = r"C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2"
+        if os.path.isfile(os.path.join(_node_dir, "node.exe")):
+            env["PATH"] = _node_dir + os.pathsep + env.get("PATH", "")
+        r = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=90, env=env)
         if r.returncode != 0:
             return None, (r.stderr or r.stdout).strip() or 'lark-cli 返回非零'
         return r.stdout, None

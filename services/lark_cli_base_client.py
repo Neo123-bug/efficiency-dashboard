@@ -14,6 +14,7 @@
 """
 import subprocess
 import json
+import os
 import time
 import logging
 from typing import Dict, List, Optional
@@ -21,6 +22,26 @@ from typing import Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 LARK_CLI = r"C:\Users\Administrator\.workbuddy\binaries\node\cli-connector-packages\lark-cli.cmd"
+
+# lark-cli.cmd 内部调 node.exe，但 node 不一定在 app.py 进程的 PATH 里
+# （看门狗/系统启动时 PATH 可能缺少 managed node 路径）。
+# 这里把 managed node 目录注入到子进程 PATH，确保 lark-cli.cmd 能找到 node。
+_MANAGED_NODE_DIR = r"C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2"
+_NODE_EXE = os.path.join(_MANAGED_NODE_DIR, "node.exe")
+_cached_env = None
+
+
+def _get_env_with_node():
+    """返回带 managed node 目录的 env 副本（缓存）"""
+    global _cached_env
+    if _cached_env is not None:
+        return _cached_env
+    env = os.environ.copy()
+    if os.path.isfile(_NODE_EXE):
+        sep = ';' if os.name == 'nt' else ':'
+        env['PATH'] = _MANAGED_NODE_DIR + sep + env.get('PATH', '')
+    _cached_env = env
+    return env
 WIKI_NODE_TOKEN = "Xs3owjpB1iXcdEkOV2Zc7AsEni7"   # 人员管理名单 wiki 节点
 TABLE_ID = "tbljuasjgQRZDN0I"
 
@@ -50,7 +71,7 @@ AVATAR_COLOR_MAP = {
 # ── 底层调用 ──
 def _run(args: List[str], timeout: int = 90) -> dict:
     r = subprocess.run([LARK_CLI] + args, capture_output=True, text=True,
-                       timeout=timeout, shell=True)
+                       timeout=timeout, shell=True, env=_get_env_with_node())
     if r.returncode != 0:
         raise RuntimeError(f"lark-cli 执行失败 (rc={r.returncode}): {r.stderr[:300]}")
     try:

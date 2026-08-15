@@ -31,11 +31,24 @@
     </div>
   </div>
 
-  <!-- Legend + Actions -->
+  <!-- Legend + View Toggle + Actions -->
   <div class="card mb-24" style="padding:16px 24px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div id="legend" style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px"></div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <!-- View Mode Toggle -->
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+          <button class="view-btn active" data-mode="month" onclick="setViewMode('month')">月视图</button>
+          <button class="view-btn" data-mode="week" onclick="setViewMode('week')">周视图</button>
+          <button class="view-btn" data-mode="day" onclick="setViewMode('day')">天视图</button>
+        </div>
+        <!-- Navigation (hidden in month mode) -->
+        <div id="nav-controls" style="display:none;gap:4px;align-items:center">
+          <button id="btn-prev" onclick="navigate(-1)" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:14px">‹</button>
+          <span id="nav-label" style="font-size:13px;font-weight:600;min-width:80px;text-align:center;color:var(--text1)">--</span>
+          <button id="btn-next" onclick="navigate(1)" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:14px">›</button>
+          <button id="btn-today" onclick="goToday()" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:pointer;font-size:12px;color:var(--accent)">今天</button>
+        </div>
         <button id="btn-refresh" onclick="refreshSchedule()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s">刷新数据</button>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
           <input type="checkbox" id="toggle-empty" onchange="renderTable()" style="cursor:pointer"> 隐藏空行
@@ -63,6 +76,8 @@
 
 <script>
 let scheduleData = null;
+let viewMode = 'month';         // 'month' | 'week' | 'day'
+let currentDay = 1;             // 1-31, used by day view & as week start anchor
 const DAY_LABELS = ['一','二','三','四','五','六','日'];
 
 // 排班值 → 类型
@@ -110,6 +125,12 @@ function getWeekday(day) {
   return weekdays[(day - 1) % 7];
 }
 
+function getWeekdayNum(day) {
+  // 返回 0=周一 ... 6=周日
+  const map = {'六':5,'日':6,'一':0,'二':1,'三':2,'四':3,'五':4};
+  return map[getWeekday(day)] ?? 0;
+}
+
 function isWeekend(day) {
   const w = getWeekday(day);
   return w === '六' || w === '日';
@@ -148,8 +169,57 @@ function renderKPI(data) {
   document.getElementById('kpi-update').textContent = (data.last_update || '').split(' ')[1] || '--';
 }
 
-function renderTable() {
-  if (!scheduleData) return;
+// ============ View Mode ============
+function setViewMode(mode) {
+  viewMode = mode;
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  const nav = document.getElementById('nav-controls');
+  nav.style.display = mode === 'month' ? 'none' : 'flex';
+  // Initialize currentDay to today when switching to day/week
+  if (mode !== 'month' && scheduleData) {
+    currentDay = scheduleData.today_day || 1;
+  }
+  renderTable();
+}
+
+function navigate(dir) {
+  if (viewMode === 'day') {
+    currentDay = Math.max(1, Math.min(31, currentDay + dir));
+  } else if (viewMode === 'week') {
+    currentDay = Math.max(1, Math.min(31, currentDay + 7 * dir));
+  }
+  renderTable();
+}
+
+function goToday() {
+  if (scheduleData) {
+    currentDay = scheduleData.today_day || 1;
+    renderTable();
+  }
+}
+
+function updateNavLabel() {
+  const label = document.getElementById('nav-label');
+  if (viewMode === 'day') {
+    const w = getWeekday(currentDay);
+    label.textContent = `8月${currentDay}日 周${w}`;
+  } else if (viewMode === 'week') {
+    const weekStart = getWeekStart(currentDay);
+    const weekEnd = Math.min(31, weekStart + 6);
+    label.textContent = `8月${weekStart}-${weekEnd}日`;
+  }
+}
+
+// Get the Monday of the week containing the given day
+function getWeekStart(day) {
+  const wd = getWeekdayNum(day);
+  return Math.max(1, day - wd);
+}
+
+// ============ Render: Month View ============
+function renderMonthView() {
   const groups = scheduleData.groups;
   const todayDay = scheduleData.today_day;
   const hideEmpty = document.getElementById('toggle-empty').checked;
@@ -177,36 +247,143 @@ function renderTable() {
   // Body
   let bodyHtml = '';
   groups.forEach((g, gi) => {
-    // Group header row
-    bodyHtml += `<tr style="background:#f0f4ff">`;
-    bodyHtml += `<td colspan="36" style="padding:8px 12px;font-weight:700;font-size:13px;color:var(--accent);position:sticky;left:0;z-index:5;background:#f0f4ff">`;
-    bodyHtml += `${g.name} <span style="font-weight:400;color:var(--text2);font-size:12px">(${g.members.length}人)</span>`;
-    bodyHtml += '</td></tr>';
-
-    // Member rows
+    bodyHtml += renderGroupRow(g, 36);
     g.members.forEach(m => {
-      // Check if all days are empty
       const hasData = m.days.some(d => d && d.trim());
       if (hideEmpty && !hasData) return;
+      bodyHtml += renderMemberRowMonth(m, g, gi, todayDay);
+    });
+    bodyHtml += renderSummaryRows(g, todayDay);
+  });
+
+  document.getElementById('schedule-body').innerHTML = bodyHtml;
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('schedule-table').style.display = '';
+}
+
+function renderMemberRowMonth(m, g, gi, todayDay) {
+  let html = '<tr style="border-bottom:1px solid var(--border)">';
+  html += `<td style="position:sticky;left:0;z-index:5;background:#fff;padding:6px 8px;font-size:11px;color:var(--text2);border-right:1px solid var(--border)">${gi === 0 ? m.position : ''}</td>`;
+  html += `<td style="position:sticky;left:60px;z-index:5;background:#fff;padding:6px 8px;font-size:11px;color:var(--text2);border-right:1px solid var(--border)">${m.id || '--'}</td>`;
+  html += `<td style="position:sticky;left:115px;z-index:5;background:#fff;padding:6px 8px;font-size:12px;font-weight:500;border-right:1px solid var(--border)">${m.name}</td>`;
+  m.days.forEach((val, di) => {
+    const day = di + 1;
+    const color = getColor(val);
+    const isToday = day === todayDay;
+    const weekend = isWeekend(day);
+    let style = `padding:4px 2px;text-align:center;font-size:10px;border-right:1px solid #f0f0f0;`;
+    if (color) style += `background:${color};`;
+    else if (weekend) style += `background:#fafafa;`;
+    if (isToday) style += `box-shadow:inset 0 0 0 2px var(--orange);`;
+    html += `<td style="${style}">${val || ''}</td>`;
+  });
+  const stats = m.stats || {};
+  html += `<td style="padding:6px;text-align:center;font-size:11px;font-weight:600;color:var(--green)">${stats['出勤天数'] || ''}</td>`;
+  html += `<td style="padding:6px;text-align:center;font-size:11px;color:var(--text2)">${stats['休息天数'] || ''}</td>`;
+  html += `<td style="padding:6px;text-align:center;font-size:11px;color:var(--orange)">${stats['加班天数'] || ''}</td>`;
+  html += '</tr>';
+  return html;
+}
+
+function renderSummaryRows(g, todayDay) {
+  let html = '';
+  if (g.daily_headcount && g.daily_headcount.length > 0) {
+    html += '<tr style="background:#f9f9f9;border-bottom:2px solid var(--border)">';
+    html += `<td colspan="3" style="position:sticky;left:0;z-index:5;background:#f9f9f9;padding:6px 12px;font-size:11px;color:var(--text2);font-weight:600;border-right:1px solid var(--border)">${g.name} 出勤人数</td>`;
+    g.daily_headcount.forEach((val, di) => {
+      const day = di + 1;
+      const isToday = day === todayDay;
+      let style = `padding:4px 2px;text-align:center;font-size:10px;font-weight:600;color:var(--accent);border-right:1px solid #f0f0f0;`;
+      if (isToday) style += `box-shadow:inset 0 0 0 2px var(--orange);`;
+      html += `<td style="${style}">${val || ''}</td>`;
+    });
+    html += '<td colspan="3"></td></tr>';
+  }
+  if (g.daily_capacity && g.daily_capacity.length > 0) {
+    const hasCap = g.daily_capacity.some(v => v && v.trim());
+    if (hasCap) {
+      html += '<tr style="background:#fffde7;border-bottom:2px solid var(--border)">';
+      html += `<td colspan="3" style="position:sticky;left:0;z-index:5;background:#fffde7;padding:6px 12px;font-size:11px;color:var(--text2);font-weight:600;border-right:1px solid var(--border)">${g.name} 每日产能</td>`;
+      g.daily_capacity.forEach((val, di) => {
+        const day = di + 1;
+        const isToday = day === todayDay;
+        let style = `padding:4px 2px;text-align:center;font-size:10px;color:#e65100;border-right:1px solid #f0f0f0;`;
+        if (isToday) style += `box-shadow:inset 0 0 0 2px var(--orange);`;
+        html += `<td style="${style}">${val || ''}</td>`;
+      });
+      html += '<td colspan="3"></td></tr>';
+    }
+  }
+  return html;
+}
+
+function renderGroupRow(g, colspan) {
+  return `<tr style="background:#f0f4ff">
+    <td colspan="${colspan}" style="padding:8px 12px;font-weight:700;font-size:13px;color:var(--accent);position:sticky;left:0;z-index:5;background:#f0f4ff">
+      ${g.name} <span style="font-weight:400;color:var(--text2);font-size:12px">(${g.members.length}人)</span>
+    </td>
+  </tr>`;
+}
+
+// ============ Render: Week View ============
+function renderWeekView() {
+  const groups = scheduleData.groups;
+  const todayDay = scheduleData.today_day;
+  const hideEmpty = document.getElementById('toggle-empty').checked;
+  const weekStart = getWeekStart(currentDay);
+  const days = [];
+  for (let d = weekStart; d <= Math.min(31, weekStart + 6); d++) {
+    days.push(d);
+  }
+
+  // Header
+  let headHtml = '<tr>';
+  headHtml += '<th style="position:sticky;left:0;z-index:10;background:#fafbfc;min-width:60px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:left">组别</th>';
+  headHtml += '<th style="position:sticky;left:60px;z-index:10;background:#fafbfc;min-width:55px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2)">工号</th>';
+  headHtml += '<th style="position:sticky;left:115px;z-index:10;background:#fafbfc;min-width:65px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:left">姓名</th>';
+  days.forEach(d => {
+    const weekend = isWeekend(d);
+    const isToday = d === todayDay;
+    const bg = isToday ? '#fff3e0' : (weekend ? '#f0f0f0' : '#fafbfc');
+    headHtml += `<th style="min-width:70px;padding:8px 4px;border-bottom:2px solid var(--border);text-align:center;font-size:12px;color:${weekend?'#999':'var(--text1)'};background:${bg}">`;
+    headHtml += `<div style="font-weight:700">${d}日</div>`;
+    headHtml += `<div style="font-size:10px;color:#bbb">周${getWeekday(d)}</div>`;
+    headHtml += '</th>';
+  });
+  headHtml += '<th style="min-width:50px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:center;background:#fafbfc">出勤</th>';
+  headHtml += '<th style="min-width:50px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:center;background:#fafbfc">休息</th>';
+  headHtml += '<th style="min-width:50px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:center;background:#fafbfc">加班</th>';
+  headHtml += '</tr>';
+  document.getElementById('schedule-head').innerHTML = headHtml;
+
+  // Body
+  let bodyHtml = '';
+  groups.forEach((g, gi) => {
+    const weekColspan = days.length + 3 + 3;
+    bodyHtml += renderGroupRow(g, weekColspan);
+    g.members.forEach(m => {
+      // Check if this member has any data in the visible week days
+      const hasDataInWeek = days.some(d => m.days[d-1] && m.days[d-1].trim());
+      const hasData = m.days.some(d => d && d.trim());
+      if (hideEmpty && !hasData) return;
+      // In week view, also hide rows that have no data in this week (unless hideEmpty is off and they have overall data)
+      if (hideEmpty && !hasDataInWeek) return;
 
       bodyHtml += '<tr style="border-bottom:1px solid var(--border)">';
       bodyHtml += `<td style="position:sticky;left:0;z-index:5;background:#fff;padding:6px 8px;font-size:11px;color:var(--text2);border-right:1px solid var(--border)">${gi === 0 ? m.position : ''}</td>`;
       bodyHtml += `<td style="position:sticky;left:60px;z-index:5;background:#fff;padding:6px 8px;font-size:11px;color:var(--text2);border-right:1px solid var(--border)">${m.id || '--'}</td>`;
       bodyHtml += `<td style="position:sticky;left:115px;z-index:5;background:#fff;padding:6px 8px;font-size:12px;font-weight:500;border-right:1px solid var(--border)">${m.name}</td>`;
-
-      m.days.forEach((val, di) => {
-        const day = di + 1;
+      days.forEach(d => {
+        const val = m.days[d-1] || '';
         const color = getColor(val);
-        const isToday = day === todayDay;
-        const weekend = isWeekend(day);
-        let style = `padding:4px 2px;text-align:center;font-size:10px;border-right:1px solid #f0f0f0;`;
+        const isToday = d === todayDay;
+        const weekend = isWeekend(d);
+        let style = `padding:6px 4px;text-align:center;font-size:12px;border-right:1px solid #f0f0f0;`;
         if (color) style += `background:${color};`;
         else if (weekend) style += `background:#fafafa;`;
         if (isToday) style += `box-shadow:inset 0 0 0 2px var(--orange);`;
-        bodyHtml += `<td style="${style}">${val || ''}</td>`;
+        bodyHtml += `<td style="${style}">${val}</td>`;
       });
-
-      // Stats
       const stats = m.stats || {};
       bodyHtml += `<td style="padding:6px;text-align:center;font-size:11px;font-weight:600;color:var(--green)">${stats['出勤天数'] || ''}</td>`;
       bodyHtml += `<td style="padding:6px;text-align:center;font-size:11px;color:var(--text2)">${stats['休息天数'] || ''}</td>`;
@@ -214,34 +391,30 @@ function renderTable() {
       bodyHtml += '</tr>';
     });
 
-    // Daily headcount summary row (if available)
+    // Summary rows for the week
     if (g.daily_headcount && g.daily_headcount.length > 0) {
       bodyHtml += '<tr style="background:#f9f9f9;border-bottom:2px solid var(--border)">';
-      bodyHtml += `<td colspan="3" style="position:sticky;left:0;z-index:5;background:#f9f9f9;padding:6px 12px;font-size:11px;color:var(--text2);font-weight:600;border-right:1px solid var(--border)">`;
-      bodyHtml += `${g.name} 出勤人数</td>`;
-      g.daily_headcount.forEach((val, di) => {
-        const day = di + 1;
-        const isToday = day === todayDay;
-        let style = `padding:4px 2px;text-align:center;font-size:10px;font-weight:600;color:var(--accent);border-right:1px solid #f0f0f0;`;
+      bodyHtml += `<td colspan="3" style="position:sticky;left:0;z-index:5;background:#f9f9f9;padding:6px 12px;font-size:11px;color:var(--text2);font-weight:600;border-right:1px solid var(--border)">${g.name} 出勤</td>`;
+      days.forEach(d => {
+        const val = g.daily_headcount[d-1] || '';
+        const isToday = d === todayDay;
+        let style = `padding:6px 4px;text-align:center;font-size:12px;font-weight:600;color:var(--accent);border-right:1px solid #f0f0f0;`;
         if (isToday) style += `box-shadow:inset 0 0 0 2px var(--orange);`;
-        bodyHtml += `<td style="${style}">${val || ''}</td>`;
+        bodyHtml += `<td style="${style}">${val}</td>`;
       });
       bodyHtml += '<td colspan="3"></td></tr>';
     }
-
-    // Daily capacity row (if available)
     if (g.daily_capacity && g.daily_capacity.length > 0) {
       const hasCap = g.daily_capacity.some(v => v && v.trim());
       if (hasCap) {
         bodyHtml += '<tr style="background:#fffde7;border-bottom:2px solid var(--border)">';
-        bodyHtml += `<td colspan="3" style="position:sticky;left:0;z-index:5;background:#fffde7;padding:6px 12px;font-size:11px;color:var(--text2);font-weight:600;border-right:1px solid var(--border)">`;
-        bodyHtml += `${g.name} 每日产能</td>`;
-        g.daily_capacity.forEach((val, di) => {
-          const day = di + 1;
-          const isToday = day === todayDay;
-          let style = `padding:4px 2px;text-align:center;font-size:10px;color:#e65100;border-right:1px solid #f0f0f0;`;
+        bodyHtml += `<td colspan="3" style="position:sticky;left:0;z-index:5;background:#fffde7;padding:6px 12px;font-size:11px;color:var(--text2);font-weight:600;border-right:1px solid var(--border)">${g.name} 产能</td>`;
+        days.forEach(d => {
+          const val = g.daily_capacity[d-1] || '';
+          const isToday = d === todayDay;
+          let style = `padding:6px 4px;text-align:center;font-size:12px;color:#e65100;border-right:1px solid #f0f0f0;`;
           if (isToday) style += `box-shadow:inset 0 0 0 2px var(--orange);`;
-          bodyHtml += `<td style="${style}">${val || ''}</td>`;
+          bodyHtml += `<td style="${style}">${val}</td>`;
         });
         bodyHtml += '<td colspan="3"></td></tr>';
       }
@@ -253,12 +426,128 @@ function renderTable() {
   document.getElementById('schedule-table').style.display = '';
 }
 
+// ============ Render: Day View ============
+function renderDayView() {
+  const groups = scheduleData.groups;
+  const todayDay = scheduleData.today_day;
+  const day = currentDay;
+  const weekend = isWeekend(day);
+  const isToday = day === todayDay;
+
+  // Header: 组别 / 工号 / 姓名 / 排班 / 类型
+  let headHtml = '<tr>';
+  headHtml += '<th style="position:sticky;left:0;z-index:10;background:#fafbfc;min-width:100px;padding:8px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text2);text-align:left">组别</th>';
+  headHtml += '<th style="position:sticky;left:100px;z-index:10;background:#fafbfc;min-width:70px;padding:8px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text2)">工号</th>';
+  headHtml += '<th style="position:sticky;left:170px;z-index:10;background:#fafbfc;min-width:90px;padding:8px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text2);text-align:left">姓名</th>';
+  headHtml += '<th style="min-width:80px;padding:8px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text2);text-align:center">排班</th>';
+  headHtml += '<th style="min-width:80px;padding:8px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text2);text-align:center">类型</th>';
+  headHtml += '<th style="min-width:120px;padding:8px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text2);text-align:center">备注</th>';
+  headHtml += '</tr>';
+  document.getElementById('schedule-head').innerHTML = headHtml;
+
+  // Body: each group, show all members with that day's schedule
+  let bodyHtml = '';
+  let totalPresent = 0;
+  let totalRest = 0;
+  let totalLeave = 0;
+
+  groups.forEach((g, gi) => {
+    // Count for this group
+    let groupPresent = 0;
+    let groupRest = 0;
+    let groupLeave = 0;
+    let hasAnyData = false;
+
+    g.members.forEach(m => {
+      const val = m.days[day - 1] || '';
+      if (val && val.trim()) hasAnyData = true;
+      const type = getType(val);
+      if (type === 'rest') groupRest++;
+      else if (type === 'leave') groupLeave++;
+      else if (type.startsWith('work') || type === 'overtime' || type === 'support') groupPresent++;
+    });
+
+    // Group header with daily summary
+    const colspan = 6;
+    bodyHtml += `<tr style="background:#f0f4ff">`;
+    bodyHtml += `<td colspan="${colspan}" style="padding:8px 12px;font-weight:700;font-size:13px;color:var(--accent);position:sticky;left:0;z-index:5;background:#f0f4ff">`;
+    bodyHtml += `${g.name} <span style="font-weight:400;color:var(--text2);font-size:12px">(${g.members.length}人</span>`;
+    if (hasAnyData) {
+      bodyHtml += `<span style="font-weight:400;color:var(--text2);font-size:12px"> · 出勤${groupPresent} · 休息${groupRest} · 请假${groupLeave}</span>`;
+    }
+    bodyHtml += `<span style="font-weight:400;color:var(--text2);font-size:12px">)</span>`;
+    bodyHtml += '</td></tr>';
+
+    totalPresent += groupPresent;
+    totalRest += groupRest;
+    totalLeave += groupLeave;
+
+    // Member rows
+    g.members.forEach(m => {
+      const val = m.days[day - 1] || '';
+      const type = getType(val);
+      const color = getColor(val);
+      const typeLabel = type ? TYPE_LABELS[type] : '';
+      const weekendStyle = weekend ? 'background:#fafafa;' : '';
+      const todayStyle = isToday ? 'box-shadow:inset 0 0 0 2px var(--orange);' : '';
+
+      let badge = '';
+      if (color) {
+        badge = `<span style="display:inline-block;padding:2px 10px;border-radius:4px;background:${color};font-size:12px;font-weight:600">${val}</span>`;
+      } else {
+        badge = `<span style="color:#ccc;font-size:12px">${val || '--'}</span>`;
+      }
+
+      let typeBadge = '';
+      if (typeLabel) {
+        typeBadge = `<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${color || '#f0f0f0'};font-size:11px;color:var(--text1)">${typeLabel}</span>`;
+      }
+
+      bodyHtml += '<tr style="border-bottom:1px solid var(--border)">';
+      bodyHtml += `<td style="position:sticky;left:0;z-index:5;background:#fff;padding:6px 12px;font-size:11px;color:var(--text2);border-right:1px solid var(--border);${weekendStyle}${todayStyle}">${gi === 0 ? m.position : ''}</td>`;
+      bodyHtml += `<td style="position:sticky;left:100px;z-index:5;background:#fff;padding:6px 12px;font-size:11px;color:var(--text2);border-right:1px solid var(--border);${weekendStyle}${todayStyle}">${m.id || '--'}</td>`;
+      bodyHtml += `<td style="position:sticky;left:170px;z-index:5;background:#fff;padding:6px 12px;font-size:13px;font-weight:500;border-right:1px solid var(--border);${weekendStyle}${todayStyle}">${m.name}</td>`;
+      bodyHtml += `<td style="padding:6px 12px;text-align:center;${weekendStyle}${todayStyle}">${badge}</td>`;
+      bodyHtml += `<td style="padding:6px 12px;text-align:center;${weekendStyle}${todayStyle}">${typeBadge || '<span style="color:#ccc">--</span>'}</td>`;
+      bodyHtml += `<td style="padding:6px 12px;text-align:center;font-size:11px;color:var(--text2);${weekendStyle}${todayStyle}"></td>`;
+      bodyHtml += '</tr>';
+    });
+  });
+
+  // Summary footer
+  bodyHtml += `<tr style="background:#fff8e1;border-top:2px solid var(--border)">`;
+  bodyHtml += `<td colspan="3" style="padding:10px 12px;font-weight:700;font-size:13px;color:var(--accent);position:sticky;left:0;z-index:5;background:#fff8e1;border-right:1px solid var(--border)">当日汇总</td>`;
+  bodyHtml += `<td style="padding:10px;text-align:center;font-size:13px;font-weight:700;color:var(--green)">出勤 ${totalPresent}</td>`;
+  bodyHtml += `<td style="padding:10px;text-align:center;font-size:13px;font-weight:600;color:var(--text2)">休息 ${totalRest}</td>`;
+  bodyHtml += `<td style="padding:10px;text-align:center;font-size:13px;font-weight:600;color:var(--red)">请假 ${totalLeave}</td>`;
+  bodyHtml += '</tr>';
+
+  document.getElementById('schedule-body').innerHTML = bodyHtml;
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('schedule-table').style.display = '';
+}
+
+// ============ Main render dispatch ============
+function renderTable() {
+  if (!scheduleData) return;
+  if (viewMode === 'month') {
+    renderMonthView();
+  } else if (viewMode === 'week') {
+    updateNavLabel();
+    renderWeekView();
+  } else if (viewMode === 'day') {
+    updateNavLabel();
+    renderDayView();
+  }
+}
+
 async function loadSchedule() {
   try {
     const resp = await fetch('/api/schedule');
     const json = await resp.json();
     if (json.ok) {
       scheduleData = json.data;
+      currentDay = scheduleData.today_day || 1;
       renderKPI(scheduleData);
       renderTable();
     } else {
@@ -308,6 +597,23 @@ loadSchedule();
 }
 .schedule-table tbody tr:hover td[style*="position:sticky"] {
   background: #f0f4ff !important;
+}
+.view-btn {
+  padding: 8px 16px;
+  border: none;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text2);
+  transition: all .15s;
+}
+.view-btn:hover {
+  background: #f5f5f5;
+}
+.view-btn.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
 }
 </style>
 {% endblock %}

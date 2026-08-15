@@ -50,12 +50,12 @@ TYPE_LABELS = {
     "support": "支援", "abnormal": "异常",
 }
 
-# 类型 → 颜色 (浅色背景)
+# 类型 → 高对比度颜色（与 schedule.html 保持一致）
 TYPE_COLORS = {
-    "work": "#e8f5e9", "work-apple": "#e3f2fd", "work-mirror": "#f3e5f5",
-    "work-charge": "#e0f7fa", "work-xray": "#fff8e1", "work-divert": "#e8eaf6",
-    "rest": "#f5f5f5", "overtime": "#fff3e0", "leave": "#ffebee",
-    "support": "#e3f2fd", "abnormal": "#fce4ec",
+    "work": "#16a34a", "work-apple": "#2563eb", "work-mirror": "#9333ea",
+    "work-charge": "#0891b2", "work-xray": "#d97706", "work-divert": "#4f46e5",
+    "rest": "#6b7280", "overtime": "#ea580c", "leave": "#dc2626",
+    "support": "#3b82f6", "abnormal": "#db2777",
 }
 
 
@@ -175,6 +175,11 @@ def _parse_doc1(csv_str: str) -> List[Dict]:
             row = rows[row_idx]
             emp_id = _get_val(row, 1)  # B列 工号
             name = _get_val(row, 2)    # C列 姓名
+            # Day1-31 在 D-AG 列 (index 3-33)，先提取供后续判断与保存
+            days = []
+            for d in range(31):
+                days.append(_get_val(row, 3 + d))
+
             if not name or name in ("出勤人数", "每日产能", "合计出勤人数", "姓名"):
                 continue
             # 跳过表头行（days 是 1-31 的数字序列）
@@ -186,11 +191,6 @@ def _parse_doc1(csv_str: str) -> List[Dict]:
                 pass
             elif not emp_id and not name:
                 continue
-
-            # Day1-31 在 D-AG 列 (index 3-33)
-            days = []
-            for d in range(31):
-                days.append(_get_val(row, 3 + d))
 
             # 统计列: 产能(34), 苹果(35), 出勤(36), 休息(37), 加班(38)
             stats = {

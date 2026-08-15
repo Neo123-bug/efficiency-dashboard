@@ -186,12 +186,20 @@ const TYPE_MAP = {
   '异常':'abnormal',
 };
 
+// 高对比度排班类型色（背景深、文字在渲染时自动配白/深色）
 const TYPE_COLORS = {
-  'work':'#e8f5e9','work-apple':'#e3f2fd','work-mirror':'#f3e5f5',
-  'work-charge':'#e0f7fa','work-xray':'#fff8e1','work-divert':'#e8eaf6',
-  'rest':'#f5f5f5','overtime':'#fff3e0','leave':'#ffebee',
-  'support':'#e3f2fd','abnormal':'#fce4ec',
+  'work':'#16a34a','work-apple':'#2563eb','work-mirror':'#9333ea',
+  'work-charge':'#0891b2','work-xray':'#d97706','work-divert':'#4f46e5',
+  'rest':'#6b7280','overtime':'#ea580c','leave':'#dc2626',
+  'support':'#3b82f6','abnormal':'#db2777',
 };
+
+// 根据背景亮度返回文字色（深底白字、浅底黑字）
+function getContrastColor(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  const yiq = (r*299 + g*587 + b*114) / 1000;
+  return yiq >= 150 ? '#1f2937' : '#ffffff';
+}
 
 const TYPE_LABELS = {
   'work':'出勤','work-apple':'苹果','work-mirror':'魔镜',
@@ -400,21 +408,23 @@ function renderMonthView() {
       html += `<div style="display:flex;gap:2px;flex:1;min-width:0">`;
       m.days.forEach((val, di) => {
         const day = di + 1;
-        const tc = getTypeColor(val);
+        const t = getType(val);
+        const tc = t ? TYPE_COLORS[t] : '';
         const isToday = day === todayDay;
         const weekend = isWeekend(day);
-        let bg = tc || (weekend ? '#fafafa' : '#f8f9fa');
-        let border = isToday ? '2px solid var(--orange)' : '1px solid #eee';
+        let bg = tc || (weekend ? '#f3f4f6' : '#f8f9fa');
+        let border = isToday ? '2px solid var(--orange)' : '1px solid #e5e7eb';
+        let color = tc ? getContrastColor(tc) : (weekend ? '#6b7280' : '#9ca3af');
         let title = `${day}日 周${getWeekday(day)}: ${val || '无排班'}`;
-        html += `<div title="${title}" style="flex:1;min-width:14px;height:26px;background:${bg};border:${border};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#666;cursor:default;overflow:hidden;white-space:nowrap">${val || ''}</div>`;
+        html += `<div title="${title}" style="flex:1;min-width:14px;height:26px;background:${bg};border:${border};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${color};cursor:default;overflow:hidden;white-space:nowrap">${val || ''}</div>`;
       });
       html += `</div>`;
 
       // Stats badges
       html += `<div style="display:flex;gap:6px;flex-shrink:0;min-width:90px;justify-content:flex-end">`;
-      if (workDays) html += `<span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-weight:600">勤${workDays}</span>`;
-      if (restDays) html += `<span style="font-size:11px;background:#f5f5f5;color:#666;padding:2px 8px;border-radius:10px">休${restDays}</span>`;
-      if (otDays) html += `<span style="font-size:11px;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px">加${otDays}</span>`;
+      if (workDays) html += `<span style="font-size:11px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-weight:700">勤${workDays}</span>`;
+      if (restDays) html += `<span style="font-size:11px;background:#f3f4f6;color:#4b5563;padding:2px 8px;border-radius:10px;font-weight:600">休${restDays}</span>`;
+      if (otDays) html += `<span style="font-size:11px;background:#ffedd5;color:#9a3412;padding:2px 8px;border-radius:10px;font-weight:700">加${otDays}</span>`;
       html += `</div>`;
       html += `</div>`;
     });
@@ -494,12 +504,14 @@ function renderWeekView() {
       html += `<div style="display:flex;flex:1;gap:4px;min-width:0">`;
       days.forEach(d => {
         const val = m.days[d-1] || '';
-        const tc = getTypeColor(val);
+        const t = getType(val);
+        const tc = t ? TYPE_COLORS[t] : '';
         const isToday = d === todayDay;
         const weekend = isWeekend(d);
-        let bg = tc || (weekend ? '#fafafa' : '#fff');
-        let border = isToday ? '2px solid var(--orange)' : '1px solid #eee';
-        html += `<div style="flex:1;text-align:center;padding:6px 2px;background:${bg};border:${border};border-radius:4px;font-size:12px;font-weight:500;min-height:28px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;white-space:nowrap">${val}</div>`;
+        let bg = tc || (weekend ? '#f3f4f6' : '#fff');
+        let border = isToday ? '2px solid var(--orange)' : '1px solid #e5e7eb';
+        let color = tc ? getContrastColor(tc) : (weekend ? '#6b7280' : '#374151');
+        html += `<div style="flex:1;text-align:center;padding:6px 2px;background:${bg};border:${border};border-radius:4px;font-size:12px;font-weight:700;color:${color};min-height:28px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;white-space:nowrap">${val}</div>`;
       });
       html += `</div>`;
 
@@ -596,13 +608,9 @@ function renderDayView() {
       const tc = getTypeColor(val);
       const tLabel = getTypeLabel(val);
 
-      // Status styling
-      let statusBg = tc || '#f5f5f5';
-      let statusColor = '#333';
-      if (type === 'rest') { statusBg = '#f5f5f5'; statusColor = '#999'; }
-      else if (type === 'leave') { statusBg = '#ffebee'; statusColor = '#c62828'; }
-      else if (type === 'overtime') { statusBg = '#fff3e0'; statusColor = '#e65100'; }
-      else if (type.startsWith('work')) { statusBg = tc; statusColor = '#2e7d32'; }
+      // Status styling（高对比）
+      let statusBg = tc || '#f3f4f6';
+      let statusColor = tc ? getContrastColor(tc) : '#6b7280';
 
       html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border:1px solid #f0f0f0;border-radius:10px;transition:all .15s" onmouseover="this.style.borderColor='${color}'" onmouseout="this.style.borderColor='#f0f0f0'">`;
       html += avatarHtml(m.name, color, 36);

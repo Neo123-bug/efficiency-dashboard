@@ -186,20 +186,28 @@ const TYPE_MAP = {
   '异常':'abnormal',
 };
 
-// 高对比度排班类型色（背景深、文字在渲染时自动配白/深色）
+// 排班类型色（中等饱和度，浅底深字，久看不累）
 const TYPE_COLORS = {
-  'work':'#16a34a','work-apple':'#2563eb','work-mirror':'#9333ea',
-  'work-charge':'#0891b2','work-xray':'#d97706','work-divert':'#4f46e5',
-  'rest':'#6b7280','overtime':'#ea580c','leave':'#dc2626',
-  'support':'#3b82f6','abnormal':'#db2777',
+  'work':'#86efac','work-apple':'#93c5fd','work-mirror':'#d8b4fe',
+  'work-charge':'#67e8f9','work-xray':'#fcd34d','work-divert':'#a5b4fc',
+  'rest':'#d1d5db','overtime':'#fdba74','leave':'#fca5a5',
+  'support':'#93c5fd','abnormal':'#f9a8d4',
 };
 
-// 根据背景亮度返回文字色（深底白字、浅底黑字）
+// 根据背景亮度返回文字色（浅底深字、深底白字）
 function getContrastColor(hex) {
   const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
   const yiq = (r*299 + g*587 + b*114) / 1000;
-  return yiq >= 150 ? '#1f2937' : '#ffffff';
+  return yiq >= 145 ? '#1f2937' : '#ffffff';
 }
+
+// 月视图格子内显示缩写，避免 31 列太挤
+const TYPE_SHORT = {
+  'work':'出','work-apple':'苹','work-mirror':'魔',
+  'work-charge':'充','work-xray':'X','work-divert':'分',
+  'rest':'休','overtime':'加','leave':'假',
+  'support':'援','abnormal':'异',
+};
 
 const TYPE_LABELS = {
   'work':'出勤','work-apple':'苹果','work-mirror':'魔镜',
@@ -377,16 +385,16 @@ function renderMonthView() {
     const groupColor = visibleMembers[0].position_color || '#888';
     const groupTag = visibleMembers[0].position_tag || g.name;
 
-    html += `<div class="card mb-16" style="overflow:hidden">`;
+    html += `<div class="card mb-16" style="overflow:hidden;overflow-x:auto">`;
     // Group header
-    html += `<div style="display:flex;align-items:center;gap:10px;padding:12px 20px;background:${groupColor}15;border-left:4px solid ${groupColor}">`;
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:12px 20px;background:${groupColor}15;border-left:4px solid ${groupColor};min-width:max-content">`;
     html += `<span style="font-size:16px;font-weight:700;color:${groupColor}">${g.name}</span>`;
     html += `<span style="font-size:12px;color:var(--text2);background:${groupColor}10;padding:2px 10px;border-radius:12px">${groupTag}</span>`;
     html += `<span style="font-size:12px;color:var(--text2)">${visibleMembers.length}人</span>`;
     html += `</div>`;
 
     // Member rows
-    html += `<div style="padding:8px 20px">`;
+    html += `<div style="padding:8px 20px;min-width:max-content">`;
     visibleMembers.forEach(m => {
       const color = m.position_color || groupColor;
       const tag = m.position_tag || g.name;
@@ -405,18 +413,19 @@ function renderMonthView() {
       html += `</div></div>`;
 
       // Day heatmap: each day flexes to fill width
-      html += `<div style="display:flex;gap:2px;flex:1;min-width:0">`;
+      html += `<div style="display:flex;gap:3px;flex:1;min-width:0">`;
       m.days.forEach((val, di) => {
         const day = di + 1;
         const t = getType(val);
         const tc = t ? TYPE_COLORS[t] : '';
         const isToday = day === todayDay;
         const weekend = isWeekend(day);
-        let bg = tc || (weekend ? '#f3f4f6' : '#f8f9fa');
-        let border = isToday ? '2px solid var(--orange)' : '1px solid #e5e7eb';
+        let bg = tc || (weekend ? '#f3f4f6' : '#f9fafb');
+        let border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
         let color = tc ? getContrastColor(tc) : (weekend ? '#6b7280' : '#9ca3af');
+        let displayVal = t ? (TYPE_SHORT[t] || val) : (val || '');
         let title = `${day}日 周${getWeekday(day)}: ${val || '无排班'}`;
-        html += `<div title="${title}" style="flex:1;min-width:14px;height:26px;background:${bg};border:${border};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${color};cursor:default;overflow:hidden;white-space:nowrap">${val || ''}</div>`;
+        html += `<div title="${title}" style="flex:1;min-width:24px;height:30px;background:${bg};border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${color};cursor:default;overflow:hidden;white-space:nowrap">${displayVal}</div>`;
       });
       html += `</div>`;
 
@@ -431,14 +440,14 @@ function renderMonthView() {
 
     // Daily headcount summary
     if (g.daily_headcount && g.daily_headcount.some(v => v && v.trim())) {
-      html += `<div style="display:flex;align-items:center;gap:12px;padding:8px 0 12px;border-top:2px solid #f0f0f0;margin-top:4px">`;
+      html += `<div style="display:flex;align-items:center;gap:12px;padding:8px 0 12px;border-top:2px solid #f0f0f0;margin-top:4px;min-width:max-content">`;
       html += `<div style="min-width:110px;flex-shrink:0;font-size:12px;font-weight:600;color:${groupColor}">📊 每日出勤</div>`;
-      html += `<div style="display:flex;gap:2px;flex:1;min-width:0">`;
+      html += `<div style="display:flex;gap:3px;flex:1;min-width:0">`;
       g.daily_headcount.forEach((val, di) => {
         const day = di + 1;
         const isToday = day === todayDay;
-        let border = isToday ? '2px solid var(--orange)' : '1px solid #eee';
-        html += `<div style="flex:1;min-width:14px;height:26px;background:${groupColor}10;border:${border};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:${groupColor};overflow:hidden;white-space:nowrap">${val || ''}</div>`;
+        let border = isToday ? '2px solid #f59e0b' : '1px solid #e5e7eb';
+        html += `<div style="flex:1;min-width:24px;height:30px;background:#f3f4f6;border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${groupColor};overflow:hidden;white-space:nowrap">${val || ''}</div>`;
       });
       html += `</div><div style="min-width:90px"></div></div>`;
     }
@@ -474,16 +483,16 @@ function renderWeekView() {
     html += `</div>`;
 
     // Day header
-    html += `<div style="display:flex;align-items:center;padding:6px 20px;border-bottom:1px solid var(--border);background:#fafbfc">`;
-    html += `<div style="min-width:120px;flex-shrink:0;font-size:11px;font-weight:600;color:var(--text2)">人员</div>`;
+    html += `<div style="display:flex;align-items:center;padding:8px 20px;border-bottom:1px solid var(--border);background:#fafbfc">`;
+    html += `<div style="min-width:120px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--text2)">人员</div>`;
     html += `<div style="display:flex;flex:1;gap:4px;min-width:0">`;
     days.forEach(d => {
       const weekend = isWeekend(d);
       const isToday = d === todayDay;
       const bg = isToday ? '#fff3e0' : (weekend ? '#f0f0f0' : 'transparent');
-      html += `<div style="flex:1;text-align:center;padding:4px;font-size:12px;font-weight:600;color:${weekend?'#999':'var(--text1)'};background:${bg};border-radius:4px;min-width:0;overflow:hidden;white-space:nowrap">${d}日 <span style="font-size:10px;color:#bbb">周${getWeekday(d)}</span></div>`;
+      html += `<div style="flex:1;text-align:center;padding:6px 4px;font-size:13px;font-weight:700;color:${weekend?'#9ca3af':'var(--text1)'};background:${bg};border-radius:6px;min-width:0;overflow:hidden;white-space:nowrap">${d}日 <span style="font-size:11px;color:#bbb">周${getWeekday(d)}</span></div>`;
     });
-    html += `<div style="min-width:80px;text-align:center;font-size:11px;color:var(--text2);flex-shrink:0">出勤</div>`;
+    html += `<div style="min-width:80px;text-align:center;font-size:12px;font-weight:700;color:var(--text2);flex-shrink:0">出勤</div>`;
     html += `</div>`;
 
     // Member rows
@@ -511,11 +520,11 @@ function renderWeekView() {
         let bg = tc || (weekend ? '#f3f4f6' : '#fff');
         let border = isToday ? '2px solid var(--orange)' : '1px solid #e5e7eb';
         let color = tc ? getContrastColor(tc) : (weekend ? '#6b7280' : '#374151');
-        html += `<div style="flex:1;text-align:center;padding:6px 2px;background:${bg};border:${border};border-radius:4px;font-size:12px;font-weight:700;color:${color};min-height:28px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;white-space:nowrap">${val}</div>`;
+        html += `<div style="flex:1;text-align:center;padding:8px 4px;background:${bg};border:${border};border-radius:6px;font-size:13px;font-weight:800;color:${color};min-height:34px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;white-space:nowrap">${val}</div>`;
       });
       html += `</div>`;
 
-      html += `<div style="min-width:80px;text-align:center;font-size:13px;font-weight:700;color:#2e7d32;flex-shrink:0">${stats['出勤天数'] || '--'}</div>`;
+      html += `<div style="min-width:80px;text-align:center;font-size:14px;font-weight:800;color:#15803d;flex-shrink:0">${stats['出勤天数'] || '--'}</div>`;
       html += `</div>`;
     });
 
@@ -528,7 +537,7 @@ function renderWeekView() {
         const val = g.daily_headcount[d-1] || '';
         const isToday = d === todayDay;
         let border = isToday ? '2px solid var(--orange)' : '1px solid #eee';
-        html += `<div style="flex:1;text-align:center;padding:6px 2px;background:${groupColor}10;border:${border};border-radius:4px;font-size:13px;font-weight:700;color:${groupColor};min-width:0;overflow:hidden;white-space:nowrap">${val}</div>`;
+        html += `<div style="flex:1;text-align:center;padding:8px 4px;background:#f3f4f6;border:${border};border-radius:6px;font-size:13px;font-weight:800;color:${groupColor};min-width:0;overflow:hidden;white-space:nowrap">${val}</div>`;
       });
       html += `</div><div style="min-width:80px"></div></div>`;
     }
@@ -620,9 +629,9 @@ function renderDayView() {
       html += `</div>`;
       // Status badge
       if (val) {
-        html += `<span style="padding:3px 10px;border-radius:6px;background:${statusBg};font-size:12px;font-weight:600;color:${statusColor};white-space:nowrap">${val}</span>`;
+        html += `<span style="padding:5px 12px;border-radius:8px;background:${statusBg};font-size:13px;font-weight:800;color:${statusColor};white-space:nowrap">${val}</span>`;
       } else {
-        html += `<span style="padding:3px 10px;border-radius:6px;background:#f5f5f5;font-size:12px;color:#ccc">--</span>`;
+        html += `<span style="padding:5px 12px;border-radius:8px;background:#f5f5f5;font-size:13px;font-weight:700;color:#ccc">--</span>`;
       }
       html += `</div>`;
     });

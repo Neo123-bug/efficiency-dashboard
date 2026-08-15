@@ -50,12 +50,12 @@ TYPE_LABELS = {
     "support": "支援", "abnormal": "异常",
 }
 
-# 类型 → 高对比度颜色（与 schedule.html 保持一致）
+# 类型 → 中等饱和度颜色（浅底深字，久看不累；与 schedule.html 保持一致）
 TYPE_COLORS = {
-    "work": "#16a34a", "work-apple": "#2563eb", "work-mirror": "#9333ea",
-    "work-charge": "#0891b2", "work-xray": "#d97706", "work-divert": "#4f46e5",
-    "rest": "#6b7280", "overtime": "#ea580c", "leave": "#dc2626",
-    "support": "#3b82f6", "abnormal": "#db2777",
+    "work": "#86efac", "work-apple": "#93c5fd", "work-mirror": "#d8b4fe",
+    "work-charge": "#67e8f9", "work-xray": "#fcd34d", "work-divert": "#a5b4fc",
+    "rest": "#d1d5db", "overtime": "#fdba74", "leave": "#fca5a5",
+    "support": "#93c5fd", "abnormal": "#f9a8d4",
 }
 
 

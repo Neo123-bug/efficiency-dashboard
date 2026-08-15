@@ -2,32 +2,136 @@
 {% block title %}排班管理 - 效率看板{% endblock %}
 {% block page_title %}排班管理{% endblock %}
 {% block content %}
+<style>
+  /* 排班管理 - 浅色 KPI 卡片 */
+  .schedule-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 1100px) {
+    .schedule-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .schedule-kpi-grid { grid-template-columns: 1fr; }
+  }
+  .schedule-kpi-card {
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(0,0,0,0.04);
+    position: relative;
+    overflow: hidden;
+    transition: transform .15s, box-shadow .15s;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .schedule-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  .schedule-kpi-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+  }
+  .schedule-kpi-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .schedule-kpi-body { flex: 1; }
+  .schedule-kpi-label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    opacity: 0.85;
+  }
+  .schedule-kpi-value {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .schedule-kpi-sub {
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0.75;
+  }
+  /* 四种浅色主题 */
+  .skpi-blue  { background: linear-gradient(135deg, #eef7ff, #f5fbff); }
+  .skpi-blue  .schedule-kpi-icon { background: #dbeafe; color: #2563eb; }
+  .skpi-blue  .schedule-kpi-value { color: #1e40af; }
+  .skpi-blue  .schedule-kpi-label { color: #3b82f6; }
+  .skpi-blue  .schedule-kpi-sub   { color: #60a5fa; }
+  .skpi-blue::before { background: #60a5fa; }
+
+  .skpi-green { background: linear-gradient(135deg, #eefdf4, #f5fff8); }
+  .skpi-green .schedule-kpi-icon { background: #dcfce7; color: #16a34a; }
+  .skpi-green .schedule-kpi-value { color: #166534; }
+  .skpi-green .schedule-kpi-label { color: #22c55e; }
+  .skpi-green .schedule-kpi-sub   { color: #4ade80; }
+  .skpi-green::before { background: #4ade80; }
+
+  .skpi-orange { background: linear-gradient(135deg, #fff7ed, #fffbf5); }
+  .skpi-orange .schedule-kpi-icon { background: #ffedd5; color: #ea580c; }
+  .skpi-orange .schedule-kpi-value { color: #9a3412; }
+  .skpi-orange .schedule-kpi-label { color: #f97316; }
+  .skpi-orange .schedule-kpi-sub   { color: #fb923c; }
+  .skpi-orange::before { background: #fb923c; }
+
+  .skpi-purple { background: linear-gradient(135deg, #f9f5ff, #fdf7ff); }
+  .skpi-purple .schedule-kpi-icon { background: #f3e8ff; color: #9333ea; }
+  .skpi-purple .schedule-kpi-value { color: #6b21a8; }
+  .skpi-purple .schedule-kpi-label { color: #a855f7; }
+  .skpi-purple .schedule-kpi-sub   { color: #c084fc; }
+  .skpi-purple::before { background: #c084fc; }
+</style>
+
 <div class="anim delay-1">
   <!-- KPI Cards -->
-  <div class="kpi-grid" id="schedule-kpi">
-    <div class="kpi-card kpi-blue">
-      <div class="kpi-icon">📅</div>
-      <div class="kpi-label">排班月份</div>
-      <div class="kpi-value" id="kpi-month" style="font-size:24px">--</div>
-      <div class="kpi-sub" id="kpi-today">--</div>
+  <div class="schedule-kpi-grid" id="schedule-kpi">
+    <div class="schedule-kpi-card skpi-blue">
+      <div class="schedule-kpi-icon">📅</div>
+      <div class="schedule-kpi-body">
+        <div class="schedule-kpi-label">排班月份</div>
+        <div class="schedule-kpi-value" id="kpi-month" style="font-size:26px">--</div>
+        <div class="schedule-kpi-sub" id="kpi-today">--</div>
+      </div>
     </div>
-    <div class="kpi-card kpi-green">
-      <div class="kpi-icon">👥</div>
-      <div class="kpi-label">排班总人数</div>
-      <div class="kpi-value" id="kpi-people">--</div>
-      <div class="kpi-sub" id="kpi-groups">--</div>
+    <div class="schedule-kpi-card skpi-green">
+      <div class="schedule-kpi-icon">👥</div>
+      <div class="schedule-kpi-body">
+        <div class="schedule-kpi-label">排班总人数</div>
+        <div class="schedule-kpi-value" id="kpi-people">--</div>
+        <div class="schedule-kpi-sub" id="kpi-groups">--</div>
+      </div>
     </div>
-    <div class="kpi-card kpi-orange">
-      <div class="kpi-icon">✓</div>
-      <div class="kpi-label">今日出勤</div>
-      <div class="kpi-value" id="kpi-headcount">--</div>
-      <div class="kpi-sub" id="kpi-headcount-sub">--</div>
+    <div class="schedule-kpi-card skpi-orange">
+      <div class="schedule-kpi-icon">✅</div>
+      <div class="schedule-kpi-body">
+        <div class="schedule-kpi-label">今日出勤人数</div>
+        <div class="schedule-kpi-value" id="kpi-headcount">--</div>
+        <div class="schedule-kpi-sub" id="kpi-headcount-sub">--</div>
+      </div>
     </div>
-    <div class="kpi-card kpi-purple">
-      <div class="kpi-icon">📊</div>
-      <div class="kpi-label">数据更新</div>
-      <div class="kpi-value" id="kpi-update" style="font-size:20px">--</div>
-      <div class="kpi-sub" id="kpi-source">飞书排班表</div>
+    <div class="schedule-kpi-card skpi-purple">
+      <div class="schedule-kpi-icon">🛌</div>
+      <div class="schedule-kpi-body">
+        <div class="schedule-kpi-label">今日休息 & 请假人数</div>
+        <div class="schedule-kpi-value" id="kpi-rest-leave">--</div>
+        <div class="schedule-kpi-sub" id="kpi-rest-leave-sub">--</div>
+      </div>
     </div>
   </div>
 
@@ -199,7 +303,9 @@ function renderKPI(data) {
   document.getElementById('kpi-groups').textContent = `${data.total_groups} 个组`;
   document.getElementById('kpi-headcount').textContent = data.today_headcount || '--';
   document.getElementById('kpi-headcount-sub').textContent = '合计出勤人数';
-  document.getElementById('kpi-update').textContent = (data.last_update || '').split(' ')[1] || '--';
+  const rl = data.today_rest_leave_count ?? (data.today_rest_count + data.today_leave_count);
+  document.getElementById('kpi-rest-leave').textContent = rl || '0';
+  document.getElementById('kpi-rest-leave-sub').textContent = `休息 ${data.today_rest_count || 0} 人 · 请假 ${data.today_leave_count || 0} 人`;
 }
 
 // ============ View Mode ============

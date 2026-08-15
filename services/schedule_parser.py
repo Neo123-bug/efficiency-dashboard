@@ -493,6 +493,19 @@ def fetch_schedule_data() -> dict:
         # 移除临时字段
         del groups1[0]["_total_headcount"]
 
+    # 统计今天各类状态人数
+    today_rest_count = 0
+    today_leave_count = 0
+    for g in all_groups:
+        for m in g.get("members", []):
+            days = m.get("days", [])
+            if today_day <= len(days):
+                val = str(days[today_day - 1]).strip()
+                if val in ("休", "休息"):
+                    today_rest_count += 1
+                elif val == "请假":
+                    today_leave_count += 1
+
     return {
         "month": "2026年8月",
         "month_code": "2026-08",
@@ -502,6 +515,9 @@ def fetch_schedule_data() -> dict:
         "today_day": today_day,
         "today_weekday": f"周{today_weekday}",
         "today_headcount": today_headcount,
+        "today_rest_count": today_rest_count,
+        "today_leave_count": today_leave_count,
+        "today_rest_leave_count": today_rest_count + today_leave_count,
         "groups": all_groups,
         "type_colors": TYPE_COLORS,
         "type_labels": TYPE_LABELS,

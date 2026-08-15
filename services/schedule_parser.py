@@ -23,6 +23,10 @@ DOC1_SHEET_ID = "Tpf5nN"
 DOC2_URL = "https://atrenew.feishu.cn/sheets/VpkbsUo56hipQItjin4cuju2nid"
 DOC2_SHEET_ID = "9HFkHx"  # 2026年8月
 
+# 支援魔镜时的固定产能（按支援顺序），单位：台/日
+MIRROR_SUPPORT_CAPACITY = [125, 135]  # 张毅、邓飞龙
+
+
 # 排班值 → 类型映射（用于前端着色）
 SCHEDULE_TYPE_MAP = {
     # 工作类
@@ -142,6 +146,27 @@ def _compute_daily_stats(groups: List[Dict]) -> List[Dict]:
                     capacity = int(float(daily_capacity[day_idx]))
                 except (ValueError, TypeError):
                     capacity = None
+
+            # 魔镜组没有汇总行时，按出勤成员产能 + 支援产能计算
+            if capacity is None and g.get("name") == "魔镜":
+                capacity = 0
+                mirror_present = 0
+                for m in members:
+                    days = m.get("days", [])
+                    if day_idx >= len(days):
+                        continue
+                    if _is_work_shift(days[day_idx]):
+                        mirror_present += 1
+                        cap = m.get("stats", {}).get("产能", "")
+                        try:
+                            capacity += int(float(cap)) if cap else 0
+                        except (ValueError, TypeError):
+                            pass
+                # 支援人数 = 当天总出勤 - 魔镜固定成员数
+                support_count = max(0, total - len(members))
+                for i in range(support_count):
+                    if i < len(MIRROR_SUPPORT_CAPACITY):
+                        capacity += MIRROR_SUPPORT_CAPACITY[i]
 
             daily_stats.append({"day": day, "total": total, "capacity": capacity})
 

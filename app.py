@@ -1552,6 +1552,47 @@ def watcher():
 def schedule():
     return render_template('schedule.html', active='schedule', cache_time=datetime.now().strftime('%H:%M:%S'))
 
+# ── 排班管理 ──
+SCHEDULE_CACHE = os.path.join(BASE_DIR, 'schedule_cache.json')
+
+def _read_schedule_cache():
+    try:
+        if os.path.exists(SCHEDULE_CACHE):
+            with open(SCHEDULE_CACHE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except:
+        pass
+    return None
+
+def _sync_schedule():
+    """从飞书表格同步排班数据"""
+    try:
+        from services.schedule_parser import fetch_schedule_data
+        data = fetch_schedule_data()
+        with open(SCHEDULE_CACHE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        app.logger.info(f"[schedule] 同步成功: {data['total_people']}人, {data['total_groups']}组")
+        return data
+    except Exception as e:
+        app.logger.error(f"[schedule] 同步失败: {e}")
+        return None
+
+@app.route('/api/schedule')
+def api_schedule():
+    data = _read_schedule_cache()
+    if not data:
+        data = _sync_schedule()
+    if not data:
+        return jsonify({"ok": False, "error": "排班数据加载失败"})
+    return jsonify({"ok": True, "data": data})
+
+@app.route('/api/schedule/refresh', methods=['POST'])
+def api_schedule_refresh():
+    data = _sync_schedule()
+    if not data:
+        return jsonify({"ok": False, "error": "排班数据刷新失败"})
+    return jsonify({"ok": True, "data": data})
+
 # ── 待办事项（飞书云文档同步 + 本地手动添加，合并展示）──
 TODO_PATH = os.path.join(BASE_DIR, 'todo_data.json')
 FEISHU_TODO_CACHE = os.path.join(BASE_DIR, 'feishu_todo_cache.json')

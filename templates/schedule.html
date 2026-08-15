@@ -1,12 +1,315 @@
 {% extends "base.html" %}
 {% block title %}排班管理 - 效率看板{% endblock %}
-{% block page_title %}{% endblock %}
+{% block page_title %}排班管理{% endblock %}
 {% block content %}
-<div class="empty anim delay-1">
-  <span class="empty-icon">◴</span>
-  <h3>排班管理</h3>
-  <p>排班功能开发中，敬请期待</p>
+<div class="anim delay-1">
+  <!-- KPI Cards -->
+  <div class="kpi-grid" id="schedule-kpi">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon">📅</div>
+      <div class="kpi-label">排班月份</div>
+      <div class="kpi-value" id="kpi-month" style="font-size:24px">--</div>
+      <div class="kpi-sub" id="kpi-today">--</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-icon">👥</div>
+      <div class="kpi-label">排班总人数</div>
+      <div class="kpi-value" id="kpi-people">--</div>
+      <div class="kpi-sub" id="kpi-groups">--</div>
+    </div>
+    <div class="kpi-card kpi-orange">
+      <div class="kpi-icon">✓</div>
+      <div class="kpi-label">今日出勤</div>
+      <div class="kpi-value" id="kpi-headcount">--</div>
+      <div class="kpi-sub" id="kpi-headcount-sub">--</div>
+    </div>
+    <div class="kpi-card kpi-purple">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-label">数据更新</div>
+      <div class="kpi-value" id="kpi-update" style="font-size:20px">--</div>
+      <div class="kpi-sub" id="kpi-source">飞书排班表</div>
+    </div>
+  </div>
+
+  <!-- Legend + Actions -->
+  <div class="card mb-24" style="padding:16px 24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div id="legend" style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="btn-refresh" onclick="refreshSchedule()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s">刷新数据</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+          <input type="checkbox" id="toggle-empty" onchange="renderTable()" style="cursor:pointer"> 隐藏空行
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedule Table -->
+  <div class="card anim delay-2" style="padding:0;overflow:hidden">
+    <div style="overflow-x:auto;max-height:75vh">
+      <table class="schedule-table" id="schedule-table" style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead id="schedule-head"></thead>
+        <tbody id="schedule-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" style="text-align:center;padding:60px;color:var(--text2)">
+    <div style="font-size:32px;margin-bottom:12px;opacity:.3">◴</div>
+    <p>正在加载排班数据...</p>
+  </div>
 </div>
+
+<script>
+let scheduleData = null;
+const DAY_LABELS = ['一','二','三','四','五','六','日'];
+
+// 排班值 → 类型
+const TYPE_MAP = {
+  '苹果':'work-apple','1':'work','出勤':'work',
+  '魔镜':'work-mirror','充电':'work-charge',
+  'X-Ray':'work-xray','X光':'work-xray','分流':'work-divert',
+  '休':'rest','休息':'rest',
+  '加':'overtime','加班':'overtime',
+  '请假':'leave',
+  '支援':'support',
+  '异常':'abnormal',
+};
+
+// 类型 → 颜色
+const TYPE_COLORS = {
+  'work':'#e8f5e9','work-apple':'#e3f2fd','work-mirror':'#f3e5f5',
+  'work-charge':'#e0f7fa','work-xray':'#fff8e1','work-divert':'#e8eaf6',
+  'rest':'#f5f5f5','overtime':'#fff3e0','leave':'#ffebee',
+  'support':'#e3f2fd','abnormal':'#fce4ec',
+};
+
+// 类型 → 标签
+const TYPE_LABELS = {
+  'work':'出勤','work-apple':'苹果','work-mirror':'魔镜',
+  'work-charge':'充电','work-xray':'X光','work-divert':'分流',
+  'rest':'休息','overtime':'加班','leave':'请假',
+  'support':'支援','abnormal':'异常',
+};
+
+function getType(val) {
+  if (!val) return '';
+  return TYPE_MAP[val] || '';
+}
+
+function getColor(val) {
+  const t = getType(val);
+  return t ? TYPE_COLORS[t] : '';
+}
+
+// 2026年8月每天是星期几
+function getWeekday(day) {
+  // 2026-08-01 是星期六
+  const weekdays = ['六','日','一','二','三','四','五'];
+  return weekdays[(day - 1) % 7];
+}
+
+function isWeekend(day) {
+  const w = getWeekday(day);
+  return w === '六' || w === '日';
+}
+
+function renderLegend() {
+  const legend = document.getElementById('legend');
+  const types = [
+    {label:'出勤',color:TYPE_COLORS.work},
+    {label:'苹果',color:TYPE_COLORS['work-apple']},
+    {label:'魔镜',color:TYPE_COLORS['work-mirror']},
+    {label:'充电',color:TYPE_COLORS['work-charge']},
+    {label:'X光',color:TYPE_COLORS['work-xray']},
+    {label:'分流',color:TYPE_COLORS['work-divert']},
+    {label:'休息',color:TYPE_COLORS.rest},
+    {label:'加班',color:TYPE_COLORS.overtime},
+    {label:'请假',color:TYPE_COLORS.leave},
+    {label:'支援',color:TYPE_COLORS.support},
+    {label:'异常',color:TYPE_COLORS.abnormal},
+  ];
+  legend.innerHTML = types.map(t =>
+    `<span style="display:flex;align-items:center;gap:4px">
+      <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${t.color};border:1px solid #ddd"></span>
+      ${t.label}
+    </span>`
+  ).join('');
+}
+
+function renderKPI(data) {
+  document.getElementById('kpi-month').textContent = data.month;
+  document.getElementById('kpi-today').textContent = `今天 ${data.today_day}日 ${data.today_weekday}`;
+  document.getElementById('kpi-people').textContent = data.total_people;
+  document.getElementById('kpi-groups').textContent = `${data.total_groups} 个组`;
+  document.getElementById('kpi-headcount').textContent = data.today_headcount || '--';
+  document.getElementById('kpi-headcount-sub').textContent = '合计出勤人数';
+  document.getElementById('kpi-update').textContent = (data.last_update || '').split(' ')[1] || '--';
+}
+
+function renderTable() {
+  if (!scheduleData) return;
+  const groups = scheduleData.groups;
+  const todayDay = scheduleData.today_day;
+  const hideEmpty = document.getElementById('toggle-empty').checked;
+
+  // Header
+  let headHtml = '<tr>';
+  headHtml += '<th style="position:sticky;left:0;z-index:10;background:#fafbfc;min-width:60px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:left">组别</th>';
+  headHtml += '<th style="position:sticky;left:60px;z-index:10;background:#fafbfc;min-width:55px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2)">工号</th>';
+  headHtml += '<th style="position:sticky;left:115px;z-index:10;background:#fafbfc;min-width:65px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:left">姓名</th>';
+  for (let d = 1; d <= 31; d++) {
+    const weekend = isWeekend(d);
+    const isToday = d === todayDay;
+    const bg = isToday ? '#fff3e0' : (weekend ? '#f0f0f0' : '#fafbfc');
+    headHtml += `<th style="min-width:34px;padding:6px 2px;border-bottom:2px solid var(--border);text-align:center;font-size:10px;color:${weekend?'#999':'var(--text2)'};background:${bg}">`;
+    headHtml += `<div>${d}</div>`;
+    headHtml += `<div style="font-size:9px;color:#bbb">${getWeekday(d)}</div>`;
+    headHtml += '</th>';
+  }
+  headHtml += '<th style="min-width:50px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:center;background:#fafbfc">出勤</th>';
+  headHtml += '<th style="min-width:50px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:center;background:#fafbfc">休息</th>';
+  headHtml += '<th style="min-width:50px;padding:8px;border-bottom:2px solid var(--border);font-size:11px;color:var(--text2);text-align:center;background:#fafbfc">加班</th>';
+  headHtml += '</tr>';
+  document.getElementById('schedule-head').innerHTML = headHtml;
+
+  // Body
+  let bodyHtml = '';
+  groups.forEach((g, gi) => {
+    // Group header row
+    bodyHtml += `<tr style="background:#f0f4ff">`;
+    bodyHtml += `<td colspan="36" style="padding:8px 12px;font-weight:700;font-size:13px;color:var(--accent);position:sticky;left:0;z-index:5;background:#f0f4ff">`;
+    bodyHtml += `${g.name} <span style="font-weight:400;color:var(--text2);font-size:12px">(${g.members.length}人)</span>`;
+    bodyHtml += '</td></tr>';
+
+    // Member rows
+    g.members.forEach(m => {
+      // Check if all days are empty
+      const hasData = m.days.some(d => d && d.trim());
+      if (hideEmpty && !hasData) return;
+
+      bodyHtml += '<tr style="border-bottom:1px solid var(--border)">';
+      bodyHtml += `<td style="position:sticky;left:0;z-index:5;background:#fff;padding:6px 8px;font-size:11px;color:var(--text2);border-right:1px solid var(--border)">${gi === 0 ? m.position : ''}</td>`;
+      bodyHtml += `<td style="position:sticky;left:60px;z-index:5;background:#fff;padding:6px 8px;font-size:11px;color:var(--text2);border-right:1px solid var(--border)">${m.id || '--'}</td>`;
+      bodyHtml += `<td style="position:sticky;left:115px;z-index:5;background:#fff;padding:6px 8px;font-size:12px;font-weight:500;border-right:1px solid var(--border)">${m.name}</td>`;
+
+      m.days.forEach((val, di) => {
+        const day = di + 1;
+        const color = getColor(val);
+        const isToday = day === todayDay;
+        const weekend = isWeekend(day);
+        let style = `padding:4px 2px;text-align:center;font-size:10px;border-right:1px solid #f0f0f0;`;
+        if (color) style += `background:${color};`;
+        else if (weekend) style += `background:#fafafa;`;
+        if (isToday) style += `box-shadow:inset 0 0 0 2px var(--orange);`;
+        bodyHtml += `<td style="${style}">${val || ''}</td>`;
+      });
+
+      // Stats
+      const stats = m.stats || {};
+      bodyHtml += `<td style="padding:6px;text-align:center;font-size:11px;font-weight:600;color:var(--green)">${stats['出勤天数'] || ''}</td>`;
+      bodyHtml += `<td style="padding:6px;text-align:center;font-size:11px;color:var(--text2)">${stats['休息天数'] || ''}</td>`;
+      bodyHtml += `<td style="padding:6px;text-align:center;font-size:11px;color:var(--orange)">${stats['加班天数'] || ''}</td>`;
+      bodyHtml += '</tr>';
+    });
+
+    // Daily headcount summary row (if available)
+    if (g.daily_headcount && g.daily_headcount.length > 0) {
+      bodyHtml += '<tr style="background:#f9f9f9;border-bottom:2px solid var(--border)">';
+      bodyHtml += `<td colspan="3" style="position:sticky;left:0;z-index:5;background:#f9f9f9;padding:6px 12px;font-size:11px;color:var(--text2);font-weight:600;border-right:1px solid var(--border)">`;
+      bodyHtml += `${g.name} 出勤人数</td>`;
+      g.daily_headcount.forEach((val, di) => {
+        const day = di + 1;
+        const isToday = day === todayDay;
+        let style = `padding:4px 2px;text-align:center;font-size:10px;font-weight:600;color:var(--accent);border-right:1px solid #f0f0f0;`;
+        if (isToday) style += `box-shadow:inset 0 0 0 2px var(--orange);`;
+        bodyHtml += `<td style="${style}">${val || ''}</td>`;
+      });
+      bodyHtml += '<td colspan="3"></td></tr>';
+    }
+
+    // Daily capacity row (if available)
+    if (g.daily_capacity && g.daily_capacity.length > 0) {
+      const hasCap = g.daily_capacity.some(v => v && v.trim());
+      if (hasCap) {
+        bodyHtml += '<tr style="background:#fffde7;border-bottom:2px solid var(--border)">';
+        bodyHtml += `<td colspan="3" style="position:sticky;left:0;z-index:5;background:#fffde7;padding:6px 12px;font-size:11px;color:var(--text2);font-weight:600;border-right:1px solid var(--border)">`;
+        bodyHtml += `${g.name} 每日产能</td>`;
+        g.daily_capacity.forEach((val, di) => {
+          const day = di + 1;
+          const isToday = day === todayDay;
+          let style = `padding:4px 2px;text-align:center;font-size:10px;color:#e65100;border-right:1px solid #f0f0f0;`;
+          if (isToday) style += `box-shadow:inset 0 0 0 2px var(--orange);`;
+          bodyHtml += `<td style="${style}">${val || ''}</td>`;
+        });
+        bodyHtml += '<td colspan="3"></td></tr>';
+      }
+    }
+  });
+
+  document.getElementById('schedule-body').innerHTML = bodyHtml;
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('schedule-table').style.display = '';
+}
+
+async function loadSchedule() {
+  try {
+    const resp = await fetch('/api/schedule');
+    const json = await resp.json();
+    if (json.ok) {
+      scheduleData = json.data;
+      renderKPI(scheduleData);
+      renderTable();
+    } else {
+      document.getElementById('loading').innerHTML = `<p style="color:var(--red)">加载失败: ${json.error || '未知错误'}</p>`;
+    }
+  } catch (e) {
+    document.getElementById('loading').innerHTML = `<p style="color:var(--red)">加载失败: ${e.message}</p>`;
+  }
+}
+
+async function refreshSchedule() {
+  const btn = document.getElementById('btn-refresh');
+  btn.textContent = '刷新中...';
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  try {
+    const resp = await fetch('/api/schedule/refresh', {method: 'POST'});
+    const json = await resp.json();
+    if (json.ok) {
+      scheduleData = json.data;
+      renderKPI(scheduleData);
+      renderTable();
+      btn.textContent = '刷新成功';
+      setTimeout(() => { btn.textContent = '刷新数据'; }, 2000);
+    } else {
+      alert('刷新失败: ' + (json.error || '未知错误'));
+      btn.textContent = '刷新数据';
+    }
+  } catch (e) {
+    alert('刷新失败: ' + e.message);
+    btn.textContent = '刷新数据';
+  }
+  btn.disabled = false;
+  btn.style.opacity = '1';
+}
+
+renderLegend();
+loadSchedule();
+</script>
+
+<style>
+.schedule-table td, .schedule-table th {
+  white-space: nowrap;
+}
+.schedule-table tbody tr:hover td {
+  background: #f8f9ff !important;
+}
+.schedule-table tbody tr:hover td[style*="position:sticky"] {
+  background: #f0f4ff !important;
+}
+</style>
 {% endblock %}
 
-  <script src="/static/auto_refresh.js"></script>
+<script src="/static/auto_refresh.js"></script>

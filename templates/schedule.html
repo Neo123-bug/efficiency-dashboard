@@ -409,7 +409,7 @@ function renderMonthView() {
       const isToday = d === todayDay;
       const bg = isToday ? '#fff3e0' : (weekend ? '#f3f4f6' : '#fafbfc');
       const color = weekend ? '#9ca3af' : 'var(--text2)';
-      html += `<div class="sg-cell sg-head" style="background:${bg};color:${color}">${d}<span style="font-size:9px;display:block;margin-top:-2px">周${getWeekday(d)}</span></div>`;
+      html += `<div class="sg-cell sg-head" style="background:${bg};color:${color}">${d}</div>`;
     }
     html += `<div class="sg-stat sg-head" style="font-weight:700;color:var(--text2)">产能</div>`;
 
@@ -423,7 +423,7 @@ function renderMonthView() {
       html += avatarHtml(m.name, color, 30);
       html += `<div style="min-width:0;overflow:hidden">`;
       html += `<div style="font-size:13px;font-weight:600;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>`;
-      html += `<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.id || '--'} · ${tag}</div>`;
+      html += `<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.id || '--'}</div>`;
       html += `</div></div>`;
 
       m.days.forEach((val, di) => {
@@ -440,12 +440,12 @@ function renderMonthView() {
         html += `<div title="${title}" class="sg-cell" style="background:${bg};border:${border};color:${txtColor}">${displayVal}</div>`;
       });
 
-      html += `<div class="sg-stat" style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap">`;
+      html += `<div class="sg-stat" style="display:flex;justify-content:center;align-items:center">`;
       const capacityVal = stats['产能'];
       if (capacityVal !== undefined && capacityVal !== '') {
-        html += `<span class="sg-badge" style="background:${groupColor}20;color:${groupColor}">产${capacityVal}</span>`;
+        html += `<span style="font-size:13px;font-weight:800;color:${groupColor}">${capacityVal}</span>`;
       } else {
-        html += `<span class="sg-badge" style="background:#f3f4f6;color:#9ca3af">产--</span>`;
+        html += `<span style="font-size:13px;font-weight:700;color:#9ca3af">--</span>`;
       }
       html += `</div>`;
     });
@@ -521,7 +521,7 @@ function renderWeekView() {
       const isToday = d === todayDay;
       const bg = isToday ? '#fff3e0' : (weekend ? '#f3f4f6' : '#fafbfc');
       const color = weekend ? '#9ca3af' : 'var(--text2)';
-      html += `<div class="sg-cell sg-head" style="background:${bg};color:${color}">${d}日 <span style="font-size:10px">周${getWeekday(d)}</span></div>`;
+      html += `<div class="sg-cell sg-head" style="background:${bg};color:${color}">${d}</div>`;
     });
     html += `<div class="sg-stat sg-head" style="font-weight:700;color:var(--text2)">产能</div>`;
 
@@ -535,7 +535,7 @@ function renderWeekView() {
       html += avatarHtml(m.name, color, 30);
       html += `<div style="min-width:0;overflow:hidden">`;
       html += `<div style="font-size:13px;font-weight:600;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>`;
-      html += `<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tag}</div>`;
+      html += `<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.id || '--'}</div>`;
       html += `</div></div>`;
 
       days.forEach(d => {
@@ -554,7 +554,7 @@ function renderWeekView() {
       html += `<div class="sg-stat" style="display:flex;justify-content:center;align-items:center">`;
       const wkCapacity = stats['产能'];
       if (wkCapacity !== undefined && wkCapacity !== '') {
-        html += `<span style="font-size:13px;font-weight:800;color:${groupColor}">产${wkCapacity}</span>`;
+        html += `<span style="font-size:13px;font-weight:800;color:${groupColor}">${wkCapacity}</span>`;
       } else {
         html += `<span style="font-size:13px;font-weight:700;color:#9ca3af">--</span>`;
       }
@@ -670,7 +670,7 @@ function renderDayView() {
       html += avatarHtml(m.name, color, 36);
       html += `<div style="flex:1;min-width:0">`;
       html += `<div style="font-size:13px;font-weight:600;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>`;
-      html += `<div style="font-size:10px;color:var(--text2)">${m.id || '--'} · ${tag}</div>`;
+      html += `<div style="font-size:10px;color:var(--text2)">${m.id || '--'}</div>`;
       html += `</div>`;
       // Status badge
       if (val) {
@@ -807,6 +807,10 @@ loadSchedule();
 }
 .sg-stat {
   min-width: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .sg-head {
   min-height: 28px;

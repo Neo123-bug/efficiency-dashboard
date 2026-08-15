@@ -379,6 +379,87 @@ def _parse_doc2(csv_str: str) -> List[Dict]:
     return groups
 
 
+# 岗位标签 → 颜色（与人员管理花名册一致）
+POSITION_COLORS = {
+    'APP':       '#f59e0b',  # 金黄
+    '哥斯拉':     '#3b82f6',  # 蓝
+    '魔镜':       '#22c55e',  # 绿
+    'xray':      '#a855f7',  # 紫
+    'Xray':      '#a855f7',
+    '充电移交':   '#ef4444',  # 红
+    'C端拍照':   '#fb923c',  # 浅橙
+    'B端拍照':   '#ea580c',  # 深橙
+    '瑕疵图':     '#f97316',  # 亮橙
+    '隐私':       '#06b6d4',  # 青
+    '信息维修':   '#14b8a6',  # 蓝绿
+}
+
+# 排班组名 → 花名册 position_tag 映射
+GROUP_TO_POSITION_TAG = {
+    'App':       'APP',
+    '魔镜':       '魔镜',
+    '哥斯拉':     '哥斯拉',
+    '充电':       '充电移交',
+    'X光':       'xray',
+    '分流':       'APP',      # 分流人员通常属于 APP 组
+    '拍照-大件':  'C端拍照',
+    '拍照-手机':  'C端拍照',
+    '拍照-兼职':  'C端拍照',
+    '隐私清除':   '隐私',
+}
+
+
+def _load_roster_lookup():
+    """从 staff_roster.json 构建工号→人员信息、姓名→人员信息 的查找表"""
+    roster_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'staff_roster.json')
+    try:
+        with open(roster_path, 'r', encoding='utf-8') as f:
+            roster = json.load(f)
+    except Exception:
+        return {}, {}
+
+    staff = roster.get('staff', roster) if isinstance(roster, dict) else roster
+    by_id = {}
+    by_name = {}
+    for s in staff:
+        no = str(s.get('employee_no') or '').strip()
+        nm = str(s.get('name') or s.get('employee_name') or '').strip().replace(' ', '')
+        info = {
+            'position_tag': s.get('position_tag', ''),
+            'dept_group': s.get('dept_group', ''),
+            'c5': s.get('c5', ''),
+            'employee_type': s.get('employee_type', ''),
+            'avatar_color': s.get('avatar_color', ''),
+            'role_class': s.get('role_class', ''),
+        }
+        if no:
+            by_id[no] = info
+        if nm:
+            by_name[nm] = info
+    return by_id, by_name
+
+
+def _enrich_with_roster(groups):
+    """用花名册数据给每个排班人员补全岗位信息"""
+    by_id, by_name = _load_roster_lookup()
+    for g in groups:
+        default_tag = GROUP_TO_POSITION_TAG.get(g['name'], '')
+        default_color = POSITION_COLORS.get(default_tag, '#888')
+        for m in g['members']:
+            emp_id = str(m.get('id', '')).strip()
+            name = str(m.get('name', '')).strip().replace(' ', '')
+            # 先按工号匹配，再按姓名匹配
+            info = by_id.get(emp_id) or by_name.get(name, {})
+            tag = info.get('position_tag', '') or default_tag
+            color = POSITION_COLORS.get(tag, default_color)
+            m['position_tag'] = tag
+            m['position_color'] = color
+            m['dept_group'] = info.get('dept_group', '')
+            m['employee_type'] = info.get('employee_type', '')
+            m['c5'] = info.get('c5', '')
+    return groups
+
+
 def fetch_schedule_data() -> dict:
     """获取并解析两个飞书文档的排班数据"""
     # 获取文档1
@@ -391,6 +472,9 @@ def fetch_schedule_data() -> dict:
 
     # 合并
     all_groups = groups1 + groups2
+
+    # 用花名册补全岗位信息
+    all_groups = _enrich_with_roster(all_groups)
 
     # 统计总人数
     total_people = sum(len(g["members"]) for g in all_groups)

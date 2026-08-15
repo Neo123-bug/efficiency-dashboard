@@ -388,16 +388,16 @@ function renderMonthView() {
       const otDays = stats['加班天数'] || '';
 
       html += `<div class="sched-row" style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f0f0f0">`;
-      // Avatar + name
-      html += `<div style="display:flex;align-items:center;gap:8px;min-width:140px;flex-shrink:0">`;
+      // Avatar + name (narrower to leave room for days)
+      html += `<div style="display:flex;align-items:center;gap:8px;min-width:110px;flex-shrink:0">`;
       html += avatarHtml(m.name, color, 32);
-      html += `<div>`;
-      html += `<div style="font-size:13px;font-weight:600;color:var(--text1)">${m.name}</div>`;
-      html += `<div style="font-size:10px;color:var(--text2)">${m.id || '--'} · ${tag}</div>`;
+      html += `<div style="min-width:0;overflow:hidden">`;
+      html += `<div style="font-size:13px;font-weight:600;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>`;
+      html += `<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.id || '--'} · ${tag}</div>`;
       html += `</div></div>`;
 
-      // Day heatmap
-      html += `<div style="display:flex;gap:2px;flex:1;overflow-x:auto">`;
+      // Day heatmap: each day flexes to fill width
+      html += `<div style="display:flex;gap:2px;flex:1;min-width:0">`;
       m.days.forEach((val, di) => {
         const day = di + 1;
         const tc = getTypeColor(val);
@@ -406,12 +406,12 @@ function renderMonthView() {
         let bg = tc || (weekend ? '#fafafa' : '#f8f9fa');
         let border = isToday ? '2px solid var(--orange)' : '1px solid #eee';
         let title = `${day}日 周${getWeekday(day)}: ${val || '无排班'}`;
-        html += `<div title="${title}" style="width:22px;height:26px;background:${bg};border:${border};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#666;cursor:default;flex-shrink:0">${val || ''}</div>`;
+        html += `<div title="${title}" style="flex:1;min-width:14px;height:26px;background:${bg};border:${border};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#666;cursor:default;overflow:hidden;white-space:nowrap">${val || ''}</div>`;
       });
       html += `</div>`;
 
       // Stats badges
-      html += `<div style="display:flex;gap:6px;flex-shrink:0;min-width:120px;justify-content:flex-end">`;
+      html += `<div style="display:flex;gap:6px;flex-shrink:0;min-width:90px;justify-content:flex-end">`;
       if (workDays) html += `<span style="font-size:11px;background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-weight:600">勤${workDays}</span>`;
       if (restDays) html += `<span style="font-size:11px;background:#f5f5f5;color:#666;padding:2px 8px;border-radius:10px">休${restDays}</span>`;
       if (otDays) html += `<span style="font-size:11px;background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px">加${otDays}</span>`;
@@ -422,15 +422,15 @@ function renderMonthView() {
     // Daily headcount summary
     if (g.daily_headcount && g.daily_headcount.some(v => v && v.trim())) {
       html += `<div style="display:flex;align-items:center;gap:12px;padding:8px 0 12px;border-top:2px solid #f0f0f0;margin-top:4px">`;
-      html += `<div style="min-width:140px;flex-shrink:0;font-size:12px;font-weight:600;color:${groupColor}">📊 每日出勤</div>`;
-      html += `<div style="display:flex;gap:2px;flex:1;overflow-x:auto">`;
+      html += `<div style="min-width:110px;flex-shrink:0;font-size:12px;font-weight:600;color:${groupColor}">📊 每日出勤</div>`;
+      html += `<div style="display:flex;gap:2px;flex:1;min-width:0">`;
       g.daily_headcount.forEach((val, di) => {
         const day = di + 1;
         const isToday = day === todayDay;
         let border = isToday ? '2px solid var(--orange)' : '1px solid #eee';
-        html += `<div style="width:22px;height:26px;background:${groupColor}10;border:${border};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:${groupColor};flex-shrink:0">${val || ''}</div>`;
+        html += `<div style="flex:1;min-width:14px;height:26px;background:${groupColor}10;border:${border};border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:${groupColor};overflow:hidden;white-space:nowrap">${val || ''}</div>`;
       });
-      html += `</div><div style="min-width:120px"></div></div>`;
+      html += `</div><div style="min-width:90px"></div></div>`;
     }
 
     html += `</div></div>`;
@@ -465,15 +465,15 @@ function renderWeekView() {
 
     // Day header
     html += `<div style="display:flex;align-items:center;padding:6px 20px;border-bottom:1px solid var(--border);background:#fafbfc">`;
-    html += `<div style="min-width:160px;flex-shrink:0;font-size:11px;font-weight:600;color:var(--text2)">人员</div>`;
-    html += `<div style="display:flex;flex:1;gap:4px">`;
+    html += `<div style="min-width:120px;flex-shrink:0;font-size:11px;font-weight:600;color:var(--text2)">人员</div>`;
+    html += `<div style="display:flex;flex:1;gap:4px;min-width:0">`;
     days.forEach(d => {
       const weekend = isWeekend(d);
       const isToday = d === todayDay;
       const bg = isToday ? '#fff3e0' : (weekend ? '#f0f0f0' : 'transparent');
-      html += `<div style="flex:1;text-align:center;padding:4px;font-size:12px;font-weight:600;color:${weekend?'#999':'var(--text1)'};background:${bg};border-radius:4px">${d}日 <span style="font-size:10px;color:#bbb">周${getWeekday(d)}</span></div>`;
+      html += `<div style="flex:1;text-align:center;padding:4px;font-size:12px;font-weight:600;color:${weekend?'#999':'var(--text1)'};background:${bg};border-radius:4px;min-width:0;overflow:hidden;white-space:nowrap">${d}日 <span style="font-size:10px;color:#bbb">周${getWeekday(d)}</span></div>`;
     });
-    html += `<div style="min-width:80px;text-align:center;font-size:11px;color:var(--text2)">出勤</div>`;
+    html += `<div style="min-width:80px;text-align:center;font-size:11px;color:var(--text2);flex-shrink:0">出勤</div>`;
     html += `</div>`;
 
     // Member rows
@@ -484,14 +484,14 @@ function renderWeekView() {
       const stats = m.stats || {};
 
       html += `<div class="sched-row" style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5">`;
-      html += `<div style="min-width:160px;flex-shrink:0;display:flex;align-items:center;gap:8px">`;
+      html += `<div style="min-width:120px;flex-shrink:0;display:flex;align-items:center;gap:8px;min-width:0">`;
       html += avatarHtml(m.name, color, 28);
-      html += `<div>`;
-      html += `<div style="font-size:12px;font-weight:600">${m.name}</div>`;
-      html += `<div style="font-size:10px;color:var(--text2)">${tag}</div>`;
+      html += `<div style="min-width:0;overflow:hidden">`;
+      html += `<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>`;
+      html += `<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tag}</div>`;
       html += `</div></div>`;
 
-      html += `<div style="display:flex;flex:1;gap:4px">`;
+      html += `<div style="display:flex;flex:1;gap:4px;min-width:0">`;
       days.forEach(d => {
         const val = m.days[d-1] || '';
         const tc = getTypeColor(val);
@@ -499,24 +499,24 @@ function renderWeekView() {
         const weekend = isWeekend(d);
         let bg = tc || (weekend ? '#fafafa' : '#fff');
         let border = isToday ? '2px solid var(--orange)' : '1px solid #eee';
-        html += `<div style="flex:1;text-align:center;padding:6px 2px;background:${bg};border:${border};border-radius:4px;font-size:12px;font-weight:500;min-height:28px;display:flex;align-items:center;justify-content:center">${val}</div>`;
+        html += `<div style="flex:1;text-align:center;padding:6px 2px;background:${bg};border:${border};border-radius:4px;font-size:12px;font-weight:500;min-height:28px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;white-space:nowrap">${val}</div>`;
       });
       html += `</div>`;
 
-      html += `<div style="min-width:80px;text-align:center;font-size:13px;font-weight:700;color:#2e7d32">${stats['出勤天数'] || '--'}</div>`;
+      html += `<div style="min-width:80px;text-align:center;font-size:13px;font-weight:700;color:#2e7d32;flex-shrink:0">${stats['出勤天数'] || '--'}</div>`;
       html += `</div>`;
     });
 
     // Daily headcount
     if (g.daily_headcount && g.daily_headcount.some(v => v && v.trim())) {
       html += `<div style="display:flex;align-items:center;padding:6px 0;border-top:2px solid #f0f0f0;margin-top:4px">`;
-      html += `<div style="min-width:160px;flex-shrink:0;font-size:12px;font-weight:600;color:${groupColor}">📊 出勤人数</div>`;
-      html += `<div style="display:flex;flex:1;gap:4px">`;
+      html += `<div style="min-width:120px;flex-shrink:0;font-size:12px;font-weight:600;color:${groupColor}">📊 出勤人数</div>`;
+      html += `<div style="display:flex;flex:1;gap:4px;min-width:0">`;
       days.forEach(d => {
         const val = g.daily_headcount[d-1] || '';
         const isToday = d === todayDay;
         let border = isToday ? '2px solid var(--orange)' : '1px solid #eee';
-        html += `<div style="flex:1;text-align:center;padding:6px 2px;background:${groupColor}10;border:${border};border-radius:4px;font-size:13px;font-weight:700;color:${groupColor}">${val}</div>`;
+        html += `<div style="flex:1;text-align:center;padding:6px 2px;background:${groupColor}10;border:${border};border-radius:4px;font-size:13px;font-weight:700;color:${groupColor};min-width:0;overflow:hidden;white-space:nowrap">${val}</div>`;
       });
       html += `</div><div style="min-width:80px"></div></div>`;
     }
